@@ -101,13 +101,9 @@ function script_writer_get_enabled_extensions() {
     $defaults = array(
         'movie-production' => true,
     );
-    $enabled = get_option( 'script_writer_enabled_extensions', $defaults );
-    if ( ! is_array( $enabled ) ) {
-        $enabled = $defaults;
-    }
-    if ( empty( $enabled['movie-production'] ) ) {
-        $enabled['movie-production'] = true;
-        update_option( 'script_writer_enabled_extensions', $enabled );
+    $enabled = get_option( 'script_writer_enabled_extensions', null );
+    if ( null === $enabled || ! is_array( $enabled ) ) {
+        return $defaults;
     }
     return $enabled;
 }
