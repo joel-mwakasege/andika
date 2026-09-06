@@ -1,0 +1,636 @@
+/* =============================================================================
+   ANDIKA MOVIE PRODUCTION — INTUITIVE SCREENPLAY ENGINE STYLES
+   Minimalist, Caret-Aware, Floating Context Tooltips & Screenplay Detection
+   Strict Rule: Pure Typography, Subtle Colors & CSS Dots Only (Zero Icons / Emojis)
+   ============================================================================= */
+
+/* 1. Subtle Floating Screenplay Element Status Pill (Bottom-Right) */
+#andika-screenplay-pill {
+    position: fixed;
+    bottom: 24px;
+    right: 28px;
+    z-index: 998;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    background: rgba(15, 17, 21, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1;
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+#andika-screenplay-pill:hover {
+    background: rgba(22, 26, 34, 0.96);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+#andika-screenplay-pill.sw-hidden,
+.sw-view-hidden #andika-screenplay-pill,
+#script-writer-editor-view.sw-view-hidden #andika-screenplay-pill {
+    display: none !important;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+}
+
+.amp-pill-guide-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    background: rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    margin-left: 4px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+#andika-screenplay-pill:hover .amp-pill-guide-btn {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+/* 2. Color-Coded Screenplay Element Dot */
+.amp-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: #94a3b8;
+    box-shadow: 0 0 6px currentColor;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Standard Screenplay Element Colors */
+.amp-dot-scene-ext-day   { background-color: #f59e0b; color: #f59e0b; }
+.amp-dot-scene-ext-night { background-color: #3b82f6; color: #3b82f6; }
+.amp-dot-scene-int-day   { background-color: #f8fafc; color: #f8fafc; }
+.amp-dot-scene-int-night { background-color: #10b981; color: #10b981; }
+.amp-dot-character       { background-color: #c084fc; color: #c084fc; }
+.amp-dot-parenthetical   { background-color: #22d3ee; color: #22d3ee; }
+.amp-dot-dialogue        { background-color: #38bdf8; color: #38bdf8; }
+.amp-dot-transition      { background-color: #fb923c; color: #fb923c; }
+.amp-dot-action          { background-color: #71717a; color: #71717a; }
+.amp-dot-props           { background-color: #eab308; color: #eab308; }
+.amp-dot-audio           { background-color: #ec4899; color: #ec4899; }
+.amp-dot-wardrobe        { background-color: #8b5cf6; color: #8b5cf6; }
+.amp-dot-vehicle         { background-color: #06b6d4; color: #06b6d4; }
+
+/* 3. Status Pill Typography Components */
+.amp-pill-type {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #f8fafc;
+    font-size: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.amp-pill-detail {
+    font-weight: 500;
+    color: #cbd5e1;
+    font-size: 11px;
+}
+
+.amp-pill-sep {
+    color: #475569;
+    font-size: 10px;
+}
+
+.amp-pill-hint {
+    color: #94a3b8;
+    font-size: 10px;
+    font-style: normal;
+    letter-spacing: 0.02em;
+}
+
+.amp-pill-hint kbd {
+    display: inline-block;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    color: #f1f5f9;
+    margin: 0 2px;
+}
+
+/* 4. Floating Contextual Caret Tooltip / Auto-Suggest Box */
+#andika-screenplay-tooltip {
+    position: absolute;
+    z-index: 1000;
+    background: #0f1115;
+    border: 1px solid #282f3d;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    min-width: 220px;
+    max-width: 340px;
+    padding: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #e2e8f0;
+    user-select: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+#andika-screenplay-tooltip.sw-hidden {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.amp-tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 8px 4px 8px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    border-bottom: 1px solid #1c222c;
+    margin-bottom: 3px;
+}
+
+.amp-tooltip-header .amp-key-hint {
+    font-size: 9px;
+    font-weight: 400;
+    color: #475569;
+}
+
+.amp-tooltip-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.amp-tooltip-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease;
+}
+
+.amp-tooltip-item:hover,
+.amp-tooltip-item.active {
+    background: #1e2532;
+    color: #ffffff;
+}
+
+.amp-item-main {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 600;
+}
+
+.amp-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.amp-item-desc {
+    font-size: 10px;
+    color: #718096;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.amp-tooltip-item:hover .amp-item-desc,
+.amp-tooltip-item.active .amp-item-desc {
+    color: #94a3b8;
+}
+
+/* 5. Clean Responsiveness */
+@media (max-width: 640px) {
+    #andika-screenplay-pill {
+        bottom: 16px;
+        right: 16px;
+        max-width: calc(100vw - 32px);
+        padding: 5px 10px;
+    }
+    .amp-pill-hint {
+        display: none;
+    }
+    .amp-pill-sep:last-of-type {
+        display: none;
+    }
+}
+
+/* 6. Screenplay Playbook & Production Vitals Drawer */
+.andika-drawer,
+.amp-drawer {
+    z-index: 1000050 !important;
+}
+
+.andika-drawer-close-btn {
+    position: relative !important;
+    z-index: 1000060 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 22px !important;
+    color: #94a3b8 !important;
+    border-radius: 6px !important;
+    transition: all 0.15s ease !important;
+}
+
+.andika-drawer-close-btn:hover {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.amp-drawer .andika-drawer-body {
+    padding: 0;
+    scrollbar-width: none;
+}
+
+.amp-drawer .andika-drawer-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.amp-drawer .andika-drawer-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.amp-drawer .andika-drawer-body::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+.amp-drawer .andika-drawer-body:hover::-webkit-scrollbar-thumb,
+.amp-drawer .andika-drawer-body.sw-show-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* Canvas Scrollbar: Hidden by default, reveals on proximity */
+#script-writer-textarea {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#script-writer-textarea::-webkit-scrollbar {
+    width: 8px;
+}
+#script-writer-textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+#script-writer-textarea::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.25s ease;
+}
+#script-writer-textarea.sw-show-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+#script-writer-textarea.sw-show-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.22);
+}
+#script-writer-textarea.sw-show-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.amp-drawer-tabs {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid #222222;
+    background: #141414;
+    padding: 0 16px;
+    gap: 8px;
+}
+
+.amp-tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #888888;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 10px 8px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.15s ease;
+}
+
+.amp-tab-btn:hover {
+    color: #e2e8f0;
+}
+
+.amp-tab-btn.active {
+    color: #ffffff;
+    border-bottom-color: #3b82f6;
+}
+
+.amp-drawer-tab-content {
+    display: none;
+    padding: 18px 20px;
+}
+
+.amp-drawer-tab-content.active {
+    display: block;
+}
+
+/* Playbook Guide Styling */
+.amp-guide-section {
+    margin-bottom: 22px;
+}
+
+.amp-guide-title {
+    margin: 0 0 10px 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.amp-guide-item {
+    background: #161a22;
+    border: 1px solid #222a36;
+    border-radius: 6px;
+    padding: 9px 12px;
+    margin-bottom: 8px;
+}
+
+.amp-guide-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.amp-guide-badge kbd,
+.amp-guide-badge code {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.amp-guide-item p {
+    margin: 4px 0 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #94a3b8;
+}
+
+.amp-guide-import-card {
+    border-color: rgba(59, 130, 246, 0.4) !important;
+    background: rgba(59, 130, 246, 0.05) !important;
+}
+
+.amp-guide-import-btn {
+    background: #3b82f6;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: background 0.15s ease;
+}
+
+.amp-guide-import-btn:hover {
+    background: #2563eb;
+}
+
+/* Production Vitals Executive Grid */
+.amp-vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.amp-vitals-card {
+    background: #161a22;
+    border: 1px solid #222a36;
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-align: center;
+}
+
+.amp-vcard-num {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f8fafc;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+
+.amp-vcard-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.amp-vitals-section {
+    margin-bottom: 22px;
+}
+
+.amp-vitals-title {
+    margin: 0 0 10px 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.amp-vitals-empty {
+    font-size: 11px;
+    color: #64748b;
+    font-style: italic;
+    padding: 6px 0;
+}
+
+/* Cast Tracker List */
+.amp-cast-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.amp-cast-row {
+    background: #161a22;
+    border: 1px solid #222a36;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.amp-cast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 11px;
+}
+
+.amp-cast-name {
+    font-weight: 700;
+    color: #f8fafc;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: 0.03em;
+}
+
+.amp-cast-count {
+    color: #94a3b8;
+    font-size: 10px;
+}
+
+.amp-cast-bar-track {
+    height: 4px;
+    background: #242c38;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.amp-cast-bar-fill {
+    height: 100%;
+    background: #c084fc;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Cataloged Production Elements */
+.amp-elem-category {
+    background: #161a22;
+    border: 1px solid #222a36;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 9px;
+}
+
+.amp-elem-cat-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 7px;
+}
+
+.amp-elem-cat-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.amp-elem-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.amp-elem-tag {
+    font-size: 10px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.amp-elem-tag small {
+    color: #64748b;
+}
+
+/* Scene Stripboard List */
+.amp-stripboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.amp-strip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #161a22;
+    border: 1px solid #222a36;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+.amp-strip-left {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    overflow: hidden;
+}
+
+.amp-strip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.amp-strip-num {
+    color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.amp-strip-slug {
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+}
+
+.amp-strip-eighths {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    color: #38bdf8;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-left: 8px;
+}

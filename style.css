@@ -1,0 +1,30 @@
+.wp-block-script-writer-editor,
+.script-writer-block-frontend-wrap {
+    background-color: #000000 !important;
+    background: #000000 !important;
+    color: #f3f4f6 !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 1440px !important;
+    box-sizing: border-box !important;
+}
+
+.script-writer-output {
+    background-color: #000000 !important;
+    background: #000000 !important;
+    color: #f3f4f6 !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace !important;
+    font-size: 18px !important;
+    line-height: 1.75 !important;
+    letter-spacing: 0.015em !important;
+    tab-size: 4 !important;
+    padding: 48px !important;
+    margin: 0 auto !important;
+    max-width: 1440px !important;
+    box-sizing: border-box !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-x: auto !important;
+    border: none !important;
+}

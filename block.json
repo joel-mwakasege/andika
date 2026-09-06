@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "script-writer/editor",
+  "version": "1.0.0",
+  "title": "Andika",
+  "category": "text",
+  "icon": "editor-code",
+  "description": "A distraction-free, code-font black-background block for writing. \"Andika\" means \"write\" in Swahili.",
+  "keywords": [
+    "andika",
+    "write",
+    "script",
+    "code",
+    "writer",
+    "editor",
+    "screenplay"
+  ],
+  "textdomain": "starter-plugin",
+  "attributes": {
+    "content": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "supports": {
+    "align": [
+      "full",
+      "wide"
+    ],
+    "html": false,
+    "color": {
+      "background": true,
+      "text": true
+    },
+    "typography": {
+      "fontSize": true,
+      "lineHeight": true
+    }
+  },
+  "editorScript": "script-writer-block-editor",
+  "editorStyle": "script-writer-block-editor-style",
+  "style": "script-writer-block-style"
+}
