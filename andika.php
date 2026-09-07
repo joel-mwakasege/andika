@@ -1051,36 +1051,22 @@ function script_writer_render_screen_html( $current_title, $saved_content, $curr
                     <!-- Left Sidebar: Style Picker & Settings -->
                     <aside class="sw-export-sidebar">
                         <div class="sw-export-field-group">
-                            <label class="sw-export-label">Export Style</label>
-                            <div class="sw-style-picker" id="sw-style-picker" role="radiogroup" aria-label="Export Style">
-                                <button type="button" class="sw-style-card active" data-style="filmscript" role="radio" aria-checked="true">
-                                    <span class="sw-style-radio"></span>
-                                    <span class="sw-style-info">
-                                        <span class="sw-style-title">Filmscript Manuscript</span>
-                                        <span class="sw-style-sub">12pt Courier · Filmscript standard</span>
-                                    </span>
-                                </button>
-                                <button type="button" class="sw-style-card" data-style="modern" role="radio" aria-checked="false">
-                                    <span class="sw-style-radio"></span>
-                                    <span class="sw-style-info">
-                                        <span class="sw-style-title">Modern Clean</span>
-                                        <span class="sw-style-sub">JetBrains Mono · Crisp screenplay</span>
-                                    </span>
-                                </button>
-                                <button type="button" class="sw-style-card" data-style="stageplay" role="radio" aria-checked="false">
-                                    <span class="sw-style-radio"></span>
-                                    <span class="sw-style-info">
-                                        <span class="sw-style-title">Stage Play / Reader</span>
-                                        <span class="sw-style-sub">Georgia Serif · Reader manuscript</span>
-                                    </span>
-                                </button>
+                            <label class="sw-export-label"><?php esc_html_e( 'Export Format', 'starter-plugin' ); ?></label>
+                            <div class="sw-export-format-badge">
+                                <div class="sw-export-format-header">
+                                    <span class="sw-export-format-indicator"></span>
+                                    <span class="sw-export-format-title"><?php esc_html_e( 'Filmscript Manuscript', 'starter-plugin' ); ?></span>
+                                </div>
+                                <div class="sw-export-format-meta">
+                                    <span class="sw-export-format-tag"><?php esc_html_e( '12pt Courier Final Draft', 'starter-plugin' ); ?></span>
+                                    <span class="sw-ext-meta-sep">&bull;</span>
+                                    <span class="sw-export-format-sub"><?php esc_html_e( 'Hollywood Shooting Script Standard', 'starter-plugin' ); ?></span>
+                                </div>
                             </div>
                             <select id="sw-export-style" class="sw-export-select" style="display:none;">
                                 <option value="filmscript" selected>Filmscript Manuscript (12pt Courier)</option>
-                                <option value="modern">Modern Clean Screenplay</option>
-                                <option value="stageplay">Stage Play / Reader's Manuscript</option>
                             </select>
-                            <p class="sw-export-help" id="sw-export-help">Submission-ready industry standard with authentic Courier 12pt layout, margins, and sluglines.</p>
+                            <p class="sw-export-help" id="sw-export-help"><?php esc_html_e( 'Authentic Hollywood shooting script standard with 12pt Courier typography, dual scene numbers, running headers, and intuitive CONTINUED recognition.', 'starter-plugin' ); ?></p>
                         </div>
 
                         <div class="sw-export-field-group">

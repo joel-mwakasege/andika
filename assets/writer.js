@@ -894,7 +894,14 @@
             ctxMenu.classList.remove( 'visible' );
         }
 
-        // 4d. Screenplay Manuscript Parser & Export Engine (Industry Filmscript standard)
+        // 4d. Screenplay Manuscript Parser & Export Engine (12YAS Filmscript Standard)
+        function unescapeHtml( str ) {
+            if ( ! str ) return '';
+            var txt = document.createElement( 'textarea' );
+            txt.innerHTML = str;
+            return txt.value;
+        }
+
         function formatInlineMarkdown( text ) {
             if ( ! text ) return '';
             var esc = escapeHtml( text );
@@ -908,49 +915,86 @@
 
         function parseScriptToManuscript( rawText, options ) {
             options = options || {};
-            var style = options.style || 'filmscript';
             var includeTitlePage = options.includeTitlePage !== false;
             var pageNumbers = options.pageNumbers !== false;
             var boldSlugs = options.boldSlugs !== false;
             var hideNotes = options.hideNotes !== false;
             var defaultTitle = options.title || 'Untitled';
 
-            var lines = ( rawText || '' ).split( /\r?\n/ );
+            var cleanRaw = unescapeHtml( rawText || '' );
+            var lines = cleanRaw.split( /\r?\n/ );
+
             var titlePageData = {
                 title: defaultTitle,
-                credit: 'Written by',
+                credit: 'Screenplay by',
                 author: '',
                 source: '',
-                date: new Date().toLocaleDateString( 'en-US', { month: 'long', day: 'numeric', year: 'numeric' } ),
-                contact: ''
+                rights: '',
+                date: new Date().toLocaleDateString( 'en-US', { month: 'numeric', day: 'numeric', year: '2-digit' } ),
+                contact: '',
+                forYourConsideration: false
             };
 
             var bodyLines = [];
             var inHeaderBlock = true;
             var i = 0;
 
-            // Extract metadata if formatted in Fountain/YAML style at top
-            while ( i < lines.length && inHeaderBlock ) {
-                var l = lines[i].trim();
-                if ( l === '' ) {
-                    inHeaderBlock = false;
+            // Check for 12YAS style or Fountain front-matter at top
+            var topTextSample = lines.slice( 0, 25 ).join( '\n' );
+            if ( /FOR YOUR CONSIDERATION/i.test( topTextSample ) || /BEST ADAPTED SCREENPLAY/i.test( topTextSample ) ) {
+                titlePageData.forYourConsideration = true;
+                while ( i < lines.length ) {
+                    var l = lines[i].trim();
+                    if ( /^CARD:\s*/i.test( l ) || /^FADE\s+IN:?/i.test( l ) || /^(\d+\s+)?(INT|EXT)[\.\s\-]/i.test( l ) ) {
+                        break;
+                    }
+                    if ( /^Screenplay by/i.test( l ) && i + 1 < lines.length ) {
+                        titlePageData.credit = l;
+                        titlePageData.author = lines[i + 1].trim();
+                        i += 2;
+                        continue;
+                    }
+                    if ( /ALL RIGHTS RESERVED/i.test( l ) ) {
+                        var rightsArr = [ l ];
+                        var rIdx = i + 1;
+                        while ( rIdx < lines.length && lines[rIdx].trim() !== '' && ! /^CARD:/i.test( lines[rIdx].trim() ) && ! /^FADE\s+IN/i.test( lines[rIdx].trim() ) ) {
+                            rightsArr.push( lines[rIdx].trim() );
+                            rIdx++;
+                        }
+                        titlePageData.rights = rightsArr.join( ' ' );
+                        i = rIdx;
+                        continue;
+                    }
+                    if ( /^BEST ADAPTED SCREENPLAY/i.test( l ) && ( ! titlePageData.title || titlePageData.title === 'Untitled' ) ) {
+                        titlePageData.title = defaultTitle && defaultTitle !== 'Untitled' ? defaultTitle : '12 Years A Slave';
+                    }
                     i++;
-                    break;
                 }
-                var metaMatch = l.match( /^(Title|Credit|Author|Authors|Source|Draft date|Date|Contact):\s*(.*)$/i );
-                if ( metaMatch ) {
-                    var key = metaMatch[1].toLowerCase();
-                    var val = metaMatch[2].trim();
-                    if ( key === 'title' ) titlePageData.title = val;
-                    else if ( key === 'credit' ) titlePageData.credit = val;
-                    else if ( key === 'author' || key === 'authors' ) titlePageData.author = val;
-                    else if ( key === 'source' ) titlePageData.source = val;
-                    else if ( key === 'draft date' || key === 'date' ) titlePageData.date = val;
-                    else if ( key === 'contact' ) titlePageData.contact = val;
-                    i++;
-                } else {
-                    inHeaderBlock = false;
-                    break;
+            } else {
+                // Extract metadata if formatted in Fountain/YAML style at top
+                while ( i < lines.length && inHeaderBlock ) {
+                    var l = lines[i].trim();
+                    if ( l === '' ) {
+                        inHeaderBlock = false;
+                        i++;
+                        break;
+                    }
+                    var metaMatch = l.match( /^(Title|Credit|Author|Authors|Source|Draft date|Date|Contact|Rights):\s*(.*)$/i );
+                    if ( metaMatch ) {
+                        var key = metaMatch[1].toLowerCase();
+                        var val = metaMatch[2].trim();
+                        if ( key === 'title' ) titlePageData.title = val;
+                        else if ( key === 'credit' ) titlePageData.credit = val;
+                        else if ( key === 'author' || key === 'authors' ) titlePageData.author = val;
+                        else if ( key === 'source' ) titlePageData.source = val;
+                        else if ( key === 'draft date' || key === 'date' ) titlePageData.date = val;
+                        else if ( key === 'contact' ) titlePageData.contact = val;
+                        else if ( key === 'rights' ) titlePageData.rights = val;
+                        i++;
+                    } else {
+                        inHeaderBlock = false;
+                        break;
+                    }
                 }
             }
 
@@ -959,15 +1003,20 @@
             }
 
             var slugRegex = /^(\.?)(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-]/i;
-            var transRegex = /^((CUT|FADE|DISSOLVE|SMASH CUT|MATCH CUT|JUMP CUT|WIPE)\s+TO:?|FADE\s+(OUT|IN)\.?|FADE\s+TO\s+BLACK\.?|>.*<)$/i;
+            var transRegex = /^((CUT|FADE|DISSOLVE|SMASH CUT|MATCH CUT|JUMP CUT|WIPE)\s+TO:?|FADE\s+(OUT|IN)\.?|FADE\s+TO\s+BLACK\.?|>.*<|BLACK)$/i;
 
             var html = '';
 
-            // 1. Cover / Title Page
+            // 1. Cover / Title Page (Authentic 12YAS Shooting Script Standard)
             if ( includeTitlePage ) {
                 html += '<div class="sc-title-page">';
+                if ( titlePageData.forYourConsideration ) {
+                    html += '  <div class="sc-title-top">F O R &nbsp; Y O U R &nbsp; C O N S I D E R A T I O N</div>';
+                } else {
+                    html += '  <div class="sc-title-top" style="visibility:hidden;">&nbsp;</div>';
+                }
                 html += '  <div class="sc-title-center">';
-                html += '    <div class="sc-title-text">' + escapeHtml( titlePageData.title ) + '</div>';
+                html += '    <div class="sc-title-text">' + escapeHtml( titlePageData.title || defaultTitle ) + '</div>';
                 if ( titlePageData.credit ) {
                     html += '    <div class="sc-title-credit">' + escapeHtml( titlePageData.credit ) + '</div>';
                 }
@@ -979,19 +1028,23 @@
                 }
                 html += '  </div>';
                 html += '  <div class="sc-title-bottom">';
-                html += '    <div>' + ( titlePageData.date ? escapeHtml( titlePageData.date ) : '' ) + '</div>';
-                html += '    <div>' + ( titlePageData.contact ? escapeHtml( titlePageData.contact ) : '' ) + '</div>';
+                if ( titlePageData.rights ) {
+                    html += '    <div class="sc-title-rights">' + escapeHtml( titlePageData.rights ) + '</div>';
+                }
+                html += '    <div class="sc-title-meta-row">';
+                html += '      <div>' + ( titlePageData.date ? escapeHtml( titlePageData.date ) : '' ) + '</div>';
+                html += '      <div>' + ( titlePageData.contact ? escapeHtml( titlePageData.contact ) : '' ) + '</div>';
+                html += '    </div>';
                 html += '  </div>';
                 html += '</div>';
             }
 
-            // 2. Running Header with Page Counter
-            if ( pageNumbers ) {
-                html += '<div class="sc-page-header"><span>2.</span></div>';
-            }
-
             var inDialogue = false;
             var lineIdx = 0;
+            var currentSceneNum = '';
+            var currentDraftDate = '1/24/13';
+            var currentDraftTitle = 'FINAL SHOOTING SCRIPT';
+            var hasEmbeddedPages = false;
 
             while ( lineIdx < bodyLines.length ) {
                 var cur = bodyLines[lineIdx].trim();
@@ -1019,17 +1072,123 @@
                     continue;
                 }
 
-                // Scene Heading / Slugline (# or INT./EXT.)
-                if ( cur.startsWith( '# ' ) || cur.startsWith( '## ' ) || cur.startsWith( '### ' ) || slugRegex.test( cur ) || cur.startsWith( '.INT' ) || cur.startsWith( '.EXT' ) ) {
+                // Check 1: Embedded Page Header (e.g. "1/24/13  FINAL SHOOTING SCRIPT" followed by "2." or "118A.")
+                var headerMatch = cur.match( /^(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(.+)$/ );
+                if ( headerMatch ) {
+                    var dateVal = headerMatch[1];
+                    var titleVal = headerMatch[2].trim();
+                    var pageNumVal = '';
+                    if ( lineIdx + 1 < bodyLines.length && /^\d+[A-Z]?\.$/.test( bodyLines[lineIdx + 1].trim() ) ) {
+                        pageNumVal = bodyLines[lineIdx + 1].trim();
+                        lineIdx++;
+                    }
+                    hasEmbeddedPages = true;
+                    currentDraftDate = dateVal;
+                    currentDraftTitle = titleVal;
+
+                    html += '<div class="sc-page-break"></div>';
+                    if ( pageNumbers ) {
+                        html += '<div class="sc-page-header">' +
+                            '<span class="sc-header-date">' + escapeHtml( currentDraftDate ) + '</span>' +
+                            '<span class="sc-header-title">' + escapeHtml( currentDraftTitle ) + '</span>' +
+                            '<span class="sc-header-page">' + escapeHtml( pageNumVal ) + '</span>' +
+                        '</div>';
+                    }
                     inDialogue = false;
-                    var slugText = cur.replace( /^#+\s*/, '' ).replace( /^\./, '' ).toUpperCase();
-                    var slugClass = 'sc-slugline' + ( boldSlugs ? '' : ' normal-weight' );
-                    html += '<div class="' + slugClass + '">' + escapeHtml( slugText ) + '</div>';
                     lineIdx++;
                     continue;
                 }
 
-                // Transitions (CUT TO:, FADE OUT.)
+                // Check 2: Bottom-of-page continuation (CONTINUED)
+                if ( /^\(?CONTINUED\)?$/i.test( cur ) && ( cur.toUpperCase() === '(CONTINUED)' || cur.toUpperCase() === '(CONTINUED' ) ) {
+                    html += '<div class="sc-page-footer-continued">(CONTINUED)</div>';
+                    inDialogue = false;
+                    lineIdx++;
+                    continue;
+                }
+
+                // Check 3: Dialogue continuation marker (MORE)
+                if ( /^\(?MORE\)?$/i.test( cur ) ) {
+                    html += '<div class="sc-more">(MORE)</div>';
+                    inDialogue = false;
+                    lineIdx++;
+                    continue;
+                }
+
+                // Check 4: Scene Continuation Header (e.g. "CONTINUED:", "3  CONTINUED:  3", "CONTINUED: (2)")
+                var contMatch = cur.match( /^(?:(\d+[A-Z]?)\s+)?CONTINUED:?\s*(\(?\d*\)?)?(?:\s+(\d+[A-Z]?))?$/i );
+                if ( contMatch || ( cur.toUpperCase().indexOf( 'CONTINUED:' ) === 0 ) ) {
+                    inDialogue = false;
+                    var contSceneNum = ( contMatch && contMatch[1] ) ? contMatch[1] : '';
+                    var contSuffix = ( contMatch && contMatch[2] ) ? contMatch[2].trim() : '';
+                    if ( contSuffix && ! contSuffix.endsWith( ')' ) ) {
+                        contSuffix += ')';
+                    }
+                    var nextJ = lineIdx + 1;
+                    var trailingNums = [];
+                    while ( nextJ < bodyLines.length && /^\d+[A-Z]?$/.test( bodyLines[nextJ].trim() ) && trailingNums.length < 2 ) {
+                        trailingNums.push( bodyLines[nextJ].trim() );
+                        nextJ++;
+                    }
+                    if ( trailingNums.length > 0 ) {
+                        contSceneNum = contSceneNum || trailingNums[0];
+                        lineIdx = nextJ - 1;
+                    }
+                    contSceneNum = contSceneNum || currentSceneNum;
+                    var contText = 'CONTINUED:' + ( contSuffix ? ' ' + contSuffix : '' );
+
+                    html += '<div class="sc-slugline sc-continued-line">' +
+                        ( contSceneNum ? '<span class="sc-scene-num sc-num-left">' + escapeHtml( contSceneNum ) + '</span>' : '' ) +
+                        '<span class="sc-slugline-content">' + escapeHtml( contText ) + '</span>' +
+                        ( contSceneNum ? '<span class="sc-scene-num sc-num-right">' + escapeHtml( contSceneNum ) + '</span>' : '' ) +
+                    '</div>';
+                    lineIdx++;
+                    continue;
+                }
+
+                // Check 5: Scene Heading / Slugline (# or INT./EXT. or with scene numbers)
+                var isSlugline = cur.startsWith( '# ' ) || cur.startsWith( '## ' ) || cur.startsWith( '### ' ) ||
+                    slugRegex.test( cur ) || cur.startsWith( '.INT' ) || cur.startsWith( '.EXT' );
+                var slugWithNumMatch = cur.match( /^(?:(\d+[A-Z]?)\s+)?(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-].*?(?:\s+(\d+[A-Z]?))?$/i );
+
+                if ( isSlugline || slugWithNumMatch ) {
+                    inDialogue = false;
+                    var leftNum = ( slugWithNumMatch && slugWithNumMatch[1] ) ? slugWithNumMatch[1] : '';
+                    var rightNum = ( slugWithNumMatch && slugWithNumMatch[3] ) ? slugWithNumMatch[3] : '';
+                    var cleanSlug = cur.replace( /^#+\s*/, '' ).replace( /^\./, '' );
+                    if ( leftNum && cleanSlug.indexOf( leftNum ) === 0 ) {
+                        cleanSlug = cleanSlug.substring( leftNum.length ).trim();
+                    }
+                    if ( rightNum && cleanSlug.endsWith( rightNum ) ) {
+                        cleanSlug = cleanSlug.substring( 0, cleanSlug.length - rightNum.length ).trim();
+                    }
+
+                    var nextJ = lineIdx + 1;
+                    var trailingNums = [];
+                    while ( nextJ < bodyLines.length && /^\d+[A-Z]?$/.test( bodyLines[nextJ].trim() ) && trailingNums.length < 2 ) {
+                        trailingNums.push( bodyLines[nextJ].trim() );
+                        nextJ++;
+                    }
+                    if ( trailingNums.length > 0 ) {
+                        leftNum = leftNum || trailingNums[0];
+                        rightNum = rightNum || ( trailingNums.length > 1 ? trailingNums[1] : trailingNums[0] );
+                        lineIdx = nextJ - 1;
+                    }
+
+                    var sceneNum = leftNum || rightNum;
+                    currentSceneNum = sceneNum || currentSceneNum;
+
+                    var slugClass = 'sc-slugline' + ( boldSlugs ? '' : ' normal-weight' );
+                    html += '<div class="' + slugClass + '">' +
+                        ( sceneNum ? '<span class="sc-scene-num sc-num-left">' + escapeHtml( sceneNum ) + '</span>' : '' ) +
+                        '<span class="sc-slugline-content">' + escapeHtml( cleanSlug.toUpperCase() ) + '</span>' +
+                        ( sceneNum ? '<span class="sc-scene-num sc-num-right">' + escapeHtml( sceneNum ) + '</span>' : '' ) +
+                    '</div>';
+                    lineIdx++;
+                    continue;
+                }
+
+                // Check 6: Transitions (CUT TO:, FADE OUT., HARD CUT TO:)
                 if ( transRegex.test( cur ) ) {
                     inDialogue = false;
                     var transText = cur.replace( /^>\s*/, '' ).replace( /\s*<$/, '' ).toUpperCase();
@@ -1038,35 +1197,52 @@
                     continue;
                 }
 
-                // Parenthetical ((quietly), (beat))
-                if ( cur.startsWith( '(' ) && cur.endsWith( ')' ) ) {
-                    html += '<div class="sc-parenthetical">' + formatInlineMarkdown( cur ) + '</div>';
+                // Check 7: Screenplay Card Cues (e.g. "CARD: 1841", "-EARLY APRIL, 1841-", "-MARCH, 1853-", "- END -")
+                if ( /^CARD:\s*/i.test( cur ) || /^-.*?-\s*$/.test( cur ) ) {
+                    inDialogue = false;
+                    html += '<div class="sc-card-cue">' + escapeHtml( cur ) + '</div>';
                     lineIdx++;
                     continue;
                 }
 
-                // Dialogue line explicitly indicated with markdown quote (> dialogue)
+                // Check 8: Parenthetical ((quietly), (beat), (to Parker))
+                var isParen = ( cur.startsWith( '(' ) && cur.endsWith( ')' ) ) || ( cur.startsWith( '(' ) && cur.indexOf( '\n' ) === -1 && cur.length < 60 );
+                if ( isParen ) {
+                    var parenText = cur;
+                    if ( ! parenText.endsWith( ')' ) ) parenText += ')';
+                    html += '<div class="sc-parenthetical">' + formatInlineMarkdown( parenText ) + '</div>';
+                    lineIdx++;
+                    continue;
+                }
+
+                // Check 9: Dialogue line explicitly indicated with markdown quote (> dialogue)
                 if ( cur.startsWith( '> ' ) ) {
                     html += '<div class="sc-dialogue">' + formatInlineMarkdown( cur.substring( 2 ).trim() ) + '</div>';
                     lineIdx++;
                     continue;
                 }
 
-                // Character Cue check:
-                // Line is ALL-CAPS (may have (V.O.), (O.S.), etc.), not excessively long, followed by dialogue line
-                var cleanName = cur.replace( /\(.*?\)/g, '' ).trim();
-                var isAllUpper = cleanName.length > 0 && cleanName === cleanName.toUpperCase() && cleanName.length <= 38 && ! /[0-9]{3,}/.test( cleanName );
+                // Check 10: Character Cue check
+                var normalizedCharLine = cur
+                    .replace( /\(CONT222D/gi, "(CONT'D)" )
+                    .replace( /CONT[’']D/gi, "CONT'D" )
+                    .replace( /\(CONT'D$/gi, "(CONT'D)" )
+                    .replace( /\(O\.S\.$/gi, "(O.S.)" )
+                    .replace( /\(V\.O\.$/gi, "(V.O.)" );
+
+                var cleanName = normalizedCharLine.replace( /\(.*?\)/g, '' ).trim();
+                var isAllUpper = cleanName.length > 0 && cleanName === cleanName.toUpperCase() && cleanName.length <= 40 && ! /[0-9]{3,}/.test( cleanName );
                 var hasNextLine = ( lineIdx + 1 < bodyLines.length && bodyLines[lineIdx + 1].trim() !== '' );
 
                 if ( ( isAllUpper && hasNextLine ) || cur.startsWith( '@' ) ) {
                     inDialogue = true;
-                    var charName = cur.replace( /^@/, '' ).toUpperCase();
+                    var charName = normalizedCharLine.replace( /^@/, '' ).toUpperCase();
                     html += '<div class="sc-character">' + escapeHtml( charName ) + '</div>';
                     lineIdx++;
                     continue;
                 }
 
-                // If preceded by character cue or parenthetical, lines are dialogue
+                // Check 11: Dialogue following character cue or parenthetical
                 if ( inDialogue ) {
                     html += '<div class="sc-dialogue">' + formatInlineMarkdown( cur ) + '</div>';
                     lineIdx++;
@@ -1078,6 +1254,16 @@
                 lineIdx++;
             }
 
+            // If the script did not have embedded running page headers, prepend running header for page 2 onward
+            if ( ! hasEmbeddedPages && pageNumbers ) {
+                var initialHeader = '<div class="sc-page-header">' +
+                    '<span class="sc-header-date">' + escapeHtml( titlePageData.date || '' ) + '</span>' +
+                    '<span class="sc-header-title">' + escapeHtml( titlePageData.title || defaultTitle ) + '</span>' +
+                    '<span class="sc-header-page">2.</span>' +
+                '</div>';
+                html = initialHeader + html;
+            }
+
             return html;
         }
 
@@ -1086,37 +1272,44 @@
             var sizeRule = isA4 ? '210mm 297mm' : 'letter portrait';
             var marginRule = isA4 ? '25mm 25mm 25mm 38mm' : '1.0in 1.0in 1.0in 1.5in';
 
-            var fontFam = "'Courier Prime', 'Courier New', Courier, monospace";
+            var fontFam = "'Courier Final Draft', 'Courier Prime', 'Courier New', Courier, monospace";
             var fontSz = "12pt";
             var lineH = "1.15";
 
-            if ( style === 'modern' ) {
-                fontFam = "'JetBrains Mono', 'Fira Code', ui-monospace, monospace";
-                fontSz = "11.5pt";
-                lineH = "1.25";
-            } else if ( style === 'stageplay' ) {
-                fontFam = "'Georgia', 'Times New Roman', serif";
-                fontSz = "12pt";
-                lineH = "1.35";
-            }
-
             return '@page { size: ' + sizeRule + '; margin: ' + marginRule + '; }' +
-                '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }' +
+                '@media print { ' +
+                    'body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; } ' +
+                    '.sc-page-break { page-break-before: always; break-before: page; height: 0; margin: 0; border: none; background: transparent; } ' +
+                '}' +
                 'html, body { margin: 0; padding: 0; background: #ffffff; color: #111111; font-family: ' + fontFam + '; font-size: ' + fontSz + '; line-height: ' + lineH + '; }' +
-                '.sc-title-page { min-height: 8.5in; display: flex; flex-direction: column; justify-content: space-between; text-align: center; page-break-after: always; break-after: page; }' +
-                '.sc-title-center { margin-top: 3.2in; }' +
-                '.sc-title-text { font-size: 16pt; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-bottom: 14pt; }' +
-                '.sc-title-credit { font-size: 11pt; margin-bottom: 6pt; }' +
-                '.sc-title-author { font-size: 13pt; margin-bottom: 20pt; }' +
-                '.sc-title-bottom { display: flex; justify-content: space-between; text-align: left; font-size: 10pt; margin-top: 2.0in; }' +
-                '.sc-page-header { display: flex; justify-content: flex-end; font-size: 10pt; margin-bottom: 16pt; }' +
-                '.sc-slugline { text-transform: uppercase; font-weight: bold; margin-top: 20pt; margin-bottom: 8pt; page-break-after: avoid; break-after: avoid; }' +
+                '.sc-title-page { min-height: 8.5in; display: flex; flex-direction: column; justify-content: space-between; text-align: center; page-break-after: always; break-after: page; box-sizing: border-box; padding-top: 0.5in; padding-bottom: 0.5in; }' +
+                '.sc-title-top { font-size: 11pt; letter-spacing: 0.32em; text-transform: uppercase; color: #222222; margin-bottom: 1.8in; }' +
+                '.sc-title-center { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }' +
+                '.sc-title-text { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 18pt; }' +
+                '.sc-title-credit { font-size: 11pt; margin-bottom: 6pt; color: #444444; }' +
+                '.sc-title-author { font-size: 12pt; margin-bottom: 20pt; }' +
+                '.sc-title-bottom { display: flex; flex-direction: column; gap: 12pt; text-align: center; font-size: 9pt; line-height: 1.35; color: #555555; margin-top: 1.5in; }' +
+                '.sc-title-rights { max-width: 5.8in; margin: 0 auto; text-align: center; font-size: 8.5pt; line-height: 1.3; text-transform: uppercase; }' +
+                '.sc-title-meta-row { display: flex; justify-content: space-between; width: 100%; font-size: 10pt; text-align: left; }' +
+                '.sc-page-header { display: flex; justify-content: space-between; align-items: center; font-size: 11.5pt; color: #111111; margin-bottom: 18pt; padding-top: 0; font-family: inherit; }' +
+                '.sc-header-date { min-width: 1.2in; text-align: left; }' +
+                '.sc-header-title { flex: 1; text-align: center; letter-spacing: 0.08em; text-transform: uppercase; }' +
+                '.sc-header-page { min-width: 1.2in; text-align: right; }' +
+                '.sc-slugline { display: flex; justify-content: space-between; align-items: baseline; text-transform: uppercase; font-weight: bold; margin-top: 18pt; margin-bottom: 8pt; page-break-after: avoid; break-after: avoid; }' +
                 '.sc-slugline.normal-weight { font-weight: normal; }' +
-                '.sc-action { margin-top: 0; margin-bottom: 9pt; line-height: 1.2; text-align: left; max-width: 6.0in; }' +
-                '.sc-character { text-transform: uppercase; margin-top: 13pt; margin-bottom: 0; margin-left: 2.0in; max-width: 3.5in; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-parenthetical { margin-top: 0; margin-bottom: 0; margin-left: 1.5in; max-width: 2.5in; font-style: italic; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-dialogue { margin-top: 0; margin-bottom: 9pt; margin-left: 1.0in; max-width: 3.5in; line-height: 1.18; }' +
-                '.sc-transition { text-transform: uppercase; margin-top: 14pt; margin-bottom: 14pt; text-align: right; width: 6.0in; page-break-after: avoid; break-after: avoid; }' +
+                '.sc-slugline-content { flex: 1; text-align: left; }' +
+                '.sc-scene-num { font-weight: normal; font-size: 12pt; }' +
+                '.sc-num-left { width: 0.45in; margin-left: -0.45in; text-align: left; flex-shrink: 0; }' +
+                '.sc-num-right { width: 0.45in; margin-right: -0.45in; text-align: right; flex-shrink: 0; }' +
+                '.sc-continued-line { margin-top: 12pt; margin-bottom: 8pt; }' +
+                '.sc-action { margin-top: 0; margin-bottom: 9pt; line-height: 1.15; text-align: left; max-width: 6.0in; }' +
+                '.sc-character { text-transform: uppercase; margin-top: 12pt; margin-bottom: 0; margin-left: 2.0in; max-width: 3.5in; page-break-after: avoid; break-after: avoid; }' +
+                '.sc-parenthetical { margin-top: 0; margin-bottom: 0; margin-left: 1.5in; max-width: 2.5in; font-style: normal; page-break-after: avoid; break-after: avoid; }' +
+                '.sc-dialogue { margin-top: 0; margin-bottom: 9pt; margin-left: 1.0in; max-width: 3.5in; line-height: 1.15; }' +
+                '.sc-more { margin-top: 0; margin-bottom: 9pt; margin-left: 2.0in; max-width: 3.5in; text-transform: uppercase; }' +
+                '.sc-page-footer-continued { text-align: right; width: 6.0in; margin-top: 16pt; margin-bottom: 16pt; page-break-after: avoid; break-after: avoid; }' +
+                '.sc-transition { text-transform: uppercase; margin-top: 12pt; margin-bottom: 12pt; text-align: right; width: 6.0in; page-break-after: avoid; break-after: avoid; }' +
+                '.sc-card-cue { text-transform: uppercase; margin-top: 12pt; margin-bottom: 8pt; text-align: left; max-width: 6.0in; }' +
                 '.sc-note { color: #666; font-style: italic; font-size: 10pt; margin: 6pt 0; padding-left: 8pt; border-left: 2px solid #ccc; }' +
                 '.sc-code { font-family: inherit; font-size: 11pt; }';
         }
@@ -1125,39 +1318,14 @@
         function updateManuscriptPreview() {
             if ( ! previewSheet ) return;
 
-            var style = exportStyleSelect ? exportStyleSelect.value : 'filmscript';
             var pageSize = exportPageSizeSelect ? exportPageSizeSelect.value : 'letter';
             var includeTitlePage = exportOptTitlePage ? exportOptTitlePage.checked : true;
             var pageNumbers = exportOptPageNumbers ? exportOptPageNumbers.checked : true;
             var boldSlugs = exportOptBoldSlugs ? exportOptBoldSlugs.checked : true;
             var hideNotes = exportOptHideNotes ? exportOptHideNotes.checked : true;
 
-            // Update style help description dynamically
-            var helpEl = document.getElementById( 'sw-export-help' );
-            if ( helpEl ) {
-                if ( style === 'modern' ) {
-                    helpEl.textContent = 'Crisp monospace screenplay layout with JetBrains Mono, highlighted sluglines, and clean modern spacing.';
-                } else if ( style === 'stageplay' ) {
-                    helpEl.textContent = 'Theatrical and reader\'s manuscript set in classic Georgia serif typography with centered dialogue cues.';
-                } else {
-                    helpEl.textContent = 'Submission-ready industry standard with authentic Courier 12pt layout, margins, and sluglines.';
-                }
-            }
-
-            // Sync style card buttons
-            var styleCards = document.querySelectorAll( '.sw-style-card' );
-            styleCards.forEach( function( card ) {
-                if ( card.getAttribute( 'data-style' ) === style ) {
-                    card.classList.add( 'active' );
-                    card.setAttribute( 'aria-checked', 'true' );
-                } else {
-                    card.classList.remove( 'active' );
-                    card.setAttribute( 'aria-checked', 'false' );
-                }
-            } );
-
             var options = {
-                style: style,
+                style: 'filmscript',
                 pageSize: pageSize,
                 includeTitlePage: includeTitlePage,
                 pageNumbers: pageNumbers,
@@ -1171,22 +1339,21 @@
                 window.cancelAnimationFrame( previewRafId );
             }
             previewRafId = window.requestAnimationFrame( function() {
-                previewSheet.className = 'sw-paper-sheet style-' + style + ' pagesize-' + pageSize;
+                previewSheet.className = 'sw-paper-sheet style-filmscript pagesize-' + pageSize;
                 var parsedHtml = parseScriptToManuscript( currentExportContent, options );
                 previewSheet.innerHTML = parsedHtml;
 
-                // Page count estimate (~210 words per page in screenplay standard)
-                var totalWords = currentExportContent.trim() ? currentExportContent.trim().split( /\s+/ ).length : 0;
-                var estPages = Math.max( 1, Math.round( totalWords / 210 ) );
+                // Count pages: count .sc-page-break if present, else estimate
+                var breakCount = ( parsedHtml.match( /class="sc-page-break"/g ) || [] ).length;
+                var estPages = breakCount > 0 ? ( breakCount + 1 ) : Math.max( 1, Math.round( ( currentExportContent.trim() ? currentExportContent.trim().split( /\s+/ ).length : 0 ) / 210 ) );
                 if ( includeTitlePage ) estPages += 1;
                 if ( previewPageCount ) {
-                    previewPageCount.textContent = estPages + ( estPages === 1 ? ' page' : ' pages' ) + ' (est.)';
+                    previewPageCount.textContent = estPages + ( estPages === 1 ? ' page' : ' pages' );
                 }
             } );
         }
 
         function printManuscriptPdf() {
-            var style = exportStyleSelect ? exportStyleSelect.value : 'filmscript';
             var pageSize = exportPageSizeSelect ? exportPageSizeSelect.value : 'letter';
             var includeTitlePage = exportOptTitlePage ? exportOptTitlePage.checked : true;
             var pageNumbers = exportOptPageNumbers ? exportOptPageNumbers.checked : true;
@@ -1194,7 +1361,7 @@
             var hideNotes = exportOptHideNotes ? exportOptHideNotes.checked : true;
 
             var options = {
-                style: style,
+                style: 'filmscript',
                 pageSize: pageSize,
                 includeTitlePage: includeTitlePage,
                 pageNumbers: pageNumbers,
@@ -1204,7 +1371,7 @@
             };
 
             var parsedHtml = parseScriptToManuscript( currentExportContent, options );
-            var css = getPrintCss( style, pageSize );
+            var css = getPrintCss( 'filmscript', pageSize );
 
             showToast( 'Opening PDF print dialog...' );
 
@@ -1234,10 +1401,9 @@
         }
 
         function downloadManuscriptHtml() {
-            var style = exportStyleSelect ? exportStyleSelect.value : 'filmscript';
             var pageSize = exportPageSizeSelect ? exportPageSizeSelect.value : 'letter';
             var options = {
-                style: style,
+                style: 'filmscript',
                 pageSize: pageSize,
                 includeTitlePage: exportOptTitlePage ? exportOptTitlePage.checked : true,
                 pageNumbers: exportOptPageNumbers ? exportOptPageNumbers.checked : true,
@@ -1246,7 +1412,7 @@
                 title: currentExportTitle || 'Untitled'
             };
             var parsedHtml = parseScriptToManuscript( currentExportContent, options );
-            var css = getPrintCss( style, pageSize );
+            var css = getPrintCss( 'filmscript', pageSize );
             var fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeHtml( currentExportTitle ) + ' - Manuscript</title><style>' + css + '</style></head><body style="padding: 20px;">' + parsedHtml + '</body></html>';
 
             var filename = ( currentExportTitle || 'writing' ).replace(/[^a-z0-9_\-]/gi, '_').toLowerCase() + '-manuscript.html';

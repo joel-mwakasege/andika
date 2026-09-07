@@ -1304,7 +1304,62 @@ body.wp-admin,
     color: #9ca3af;
 }
 
-/* Style Choice Cards (Zero-flicker tactile switcher) */
+/* Style Choice Cards & Format Badge */
+.sw-export-format-badge {
+    background: #141418;
+    border: 1px solid #272732;
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.15s ease;
+}
+
+.sw-export-format-badge:hover {
+    border-color: #3b82f6;
+}
+
+.sw-export-format-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sw-export-format-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    flex-shrink: 0;
+}
+
+.sw-export-format-title {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.sw-export-format-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #888899;
+    font-family: ui-monospace, monospace;
+}
+
+.sw-export-format-tag {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.sw-export-format-sub {
+    color: #9ca3af;
+}
+
 .sw-style-picker {
     display: flex;
     flex-direction: column;
@@ -1590,54 +1645,24 @@ body.wp-admin,
     padding: 25mm 25mm 25mm 38mm;
 }
 
-/* Style Variants */
-/* Style 1: Filmscript Manuscript (Industry standard) */
-.sw-paper-sheet.style-filmscript {
-    font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+/* 12YAS Filmscript Manuscript Screenplay Typography */
+.sw-paper-sheet {
+    font-family: 'Courier Final Draft', 'Courier Prime', 'Courier New', Courier, monospace;
     font-size: 12pt;
     line-height: 1.15;
     background: #ffffff;
     color: #111111;
 }
 
-/* Style 2: Modern Screenplay */
-.sw-paper-sheet.style-modern {
-    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-    font-size: 11.5pt;
-    line-height: 1.25;
-    background: #ffffff;
-    color: #1a1a1a;
-}
-.sw-paper-sheet.style-modern .sc-slugline {
-    background: #f1f3f5;
-    padding: 2px 8px;
-    border-radius: 4px;
-    display: inline-block;
-    color: #0f172a;
-    border-left: 3px solid #3b82f6;
-}
-
-/* Style 3: Stage Play / Reader's Manuscript */
-.sw-paper-sheet.style-stageplay {
-    font-family: 'Georgia', 'Times New Roman', serif;
+.sw-paper-sheet.style-filmscript {
+    font-family: 'Courier Final Draft', 'Courier Prime', 'Courier New', Courier, monospace;
     font-size: 12pt;
-    line-height: 1.35;
-    background: #fffdfa;
-    color: #222222;
-}
-.sw-paper-sheet.style-stageplay .sc-character {
-    margin-left: 0;
-    text-align: center;
-    font-variant: small-caps;
-    letter-spacing: 0.08em;
-    font-weight: bold;
-}
-.sw-paper-sheet.style-stageplay .sc-dialogue {
-    margin-left: 0.5in;
-    max-width: 5.0in;
+    line-height: 1.15;
+    background: #ffffff;
+    color: #111111;
 }
 
-/* Screenplay Typography Classes */
+/* Authentic 12YAS Filmscript Title Page */
 .sc-title-page {
     min-height: 8.5in;
     display: flex;
@@ -1645,58 +1670,112 @@ body.wp-admin,
     justify-content: space-between;
     text-align: center;
     page-break-after: always;
-    border-bottom: 1px dashed #d1d5db;
-    margin-bottom: 40px;
-    padding-bottom: 40px;
+    break-after: page;
     box-sizing: border-box;
+    padding-top: 0.4in;
+    padding-bottom: 0.4in;
+    margin-bottom: 40px;
+    border-bottom: 1px dashed #d1d5db;
+}
+
+.sc-title-top {
+    font-size: 11pt;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #222222;
+    margin-bottom: 1.8in;
 }
 
 .sc-title-center {
-    margin-top: 3.2in;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .sc-title-text {
-    font-size: 16pt;
+    font-size: 14pt;
     font-weight: bold;
-    text-decoration: underline;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 14pt;
+    letter-spacing: 0.08em;
+    margin-bottom: 18pt;
 }
 
 .sc-title-credit {
     font-size: 11pt;
     margin-bottom: 6pt;
-    color: #333333;
+    color: #444444;
 }
 
 .sc-title-author {
-    font-size: 13pt;
+    font-size: 12pt;
     margin-bottom: 20pt;
 }
 
 .sc-title-bottom {
     display: flex;
-    justify-content: space-between;
-    text-align: left;
-    font-size: 10pt;
+    flex-direction: column;
+    gap: 12pt;
+    text-align: center;
+    font-size: 9pt;
+    line-height: 1.35;
     color: #555555;
-    margin-top: 2.0in;
+    margin-top: 1.5in;
+}
+
+.sc-title-rights {
+    max-width: 5.8in;
+    margin: 0 auto;
+    text-align: center;
+    font-size: 8.5pt;
+    line-height: 1.3;
+    text-transform: uppercase;
+}
+
+.sc-title-meta-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 10pt;
+    text-align: left;
 }
 
 .sc-page-header {
     display: flex;
-    justify-content: flex-end;
-    font-size: 10pt;
-    color: #444444;
-    margin-bottom: 16pt;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5pt;
+    color: #111111;
+    margin-bottom: 18pt;
+    padding-top: 0;
     font-family: inherit;
 }
 
+.sc-header-date {
+    min-width: 1.2in;
+    text-align: left;
+}
+
+.sc-header-title {
+    flex: 1;
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sc-header-page {
+    min-width: 1.2in;
+    text-align: right;
+}
+
 .sc-slugline {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
     text-transform: uppercase;
     font-weight: bold;
-    margin-top: 20pt;
+    margin-top: 18pt;
     margin-bottom: 8pt;
     page-break-after: avoid;
     break-after: avoid;
@@ -1706,17 +1785,46 @@ body.wp-admin,
     font-weight: normal;
 }
 
+.sc-slugline-content {
+    flex: 1;
+    text-align: left;
+}
+
+.sc-scene-num {
+    font-weight: normal;
+    font-size: 12pt;
+}
+
+.sc-num-left {
+    width: 0.45in;
+    margin-left: -0.45in;
+    text-align: left;
+    flex-shrink: 0;
+}
+
+.sc-num-right {
+    width: 0.45in;
+    margin-right: -0.45in;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.sc-continued-line {
+    margin-top: 12pt;
+    margin-bottom: 8pt;
+}
+
 .sc-action {
     margin-top: 0;
     margin-bottom: 9pt;
-    line-height: 1.2;
+    line-height: 1.15;
     text-align: left;
     max-width: 6.0in;
 }
 
 .sc-character {
     text-transform: uppercase;
-    margin-top: 13pt;
+    margin-top: 12pt;
     margin-bottom: 0;
     margin-left: 2.0in;
     max-width: 3.5in;
@@ -1729,7 +1837,7 @@ body.wp-admin,
     margin-bottom: 0;
     margin-left: 1.5in;
     max-width: 2.5in;
-    font-style: italic;
+    font-style: normal;
     page-break-after: avoid;
     break-after: avoid;
 }
@@ -1739,17 +1847,42 @@ body.wp-admin,
     margin-bottom: 9pt;
     margin-left: 1.0in;
     max-width: 3.5in;
-    line-height: 1.18;
+    line-height: 1.15;
+}
+
+.sc-more {
+    margin-top: 0;
+    margin-bottom: 9pt;
+    margin-left: 2.0in;
+    max-width: 3.5in;
+    text-transform: uppercase;
+}
+
+.sc-page-footer-continued {
+    text-align: right;
+    width: 6.0in;
+    margin-top: 16pt;
+    margin-bottom: 16pt;
+    page-break-after: avoid;
+    break-after: avoid;
 }
 
 .sc-transition {
     text-transform: uppercase;
-    margin-top: 14pt;
-    margin-bottom: 14pt;
+    margin-top: 12pt;
+    margin-bottom: 12pt;
     text-align: right;
     width: 6.0in;
     page-break-after: avoid;
     break-after: avoid;
+}
+
+.sc-card-cue {
+    text-transform: uppercase;
+    margin-top: 12pt;
+    margin-bottom: 8pt;
+    text-align: left;
+    max-width: 6.0in;
 }
 
 .sc-note {
@@ -1767,6 +1900,17 @@ body.wp-admin,
     border-radius: 3px;
     font-family: inherit;
     font-size: 11pt;
+}
+
+.sw-paper-sheet .sc-page-break {
+    height: 28px;
+    margin: 32px -1.0in 32px -1.5in;
+    border-top: 2px dashed #cbd5e1;
+    background: #f8fafc;
+    display: block;
+    position: relative;
+    page-break-before: always;
+    break-before: page;
 }
 
 /* ==========================================================================
@@ -3127,13 +3271,6 @@ body.wp-admin,
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-top: 10px;
-}
-
-.sw-extensions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
     margin-top: 14px;
 }
 
@@ -3192,6 +3329,7 @@ body.wp-admin,
 
 .sw-ext-title {
     margin: 0;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 14px;
     font-weight: 600;
     color: #f8fafc;
@@ -3203,6 +3341,7 @@ body.wp-admin,
     display: flex;
     align-items: center;
     gap: 6px;
+    font-family: ui-monospace, monospace;
     font-size: 11px;
     color: #64748b;
     line-height: 1.2;
@@ -3240,6 +3379,7 @@ body.wp-admin,
 .sw-btn-toggle-ext {
     min-width: 80px;
     height: 30px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
     font-weight: 600;
     font-size: 11px;
     background: #202634;
