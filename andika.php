@@ -867,6 +867,10 @@ function script_writer_render_screen_html( $current_title, $saved_content, $curr
                         <button type="button" class="sw-btn sw-btn-import" id="script-writer-import-btn" title="Import PDF Script or Document">Import</button>
                         <button type="button" class="sw-btn sw-btn-new" id="script-writer-new-btn" title="Create New Writing">+ New</button>
                         <span class="sw-divider"></span>
+                        <button type="button" class="sw-btn sw-btn-track" id="script-writer-track-btn" title="Toggle Track Changes (Revision Marks)">Track Changes</button>
+                        <button type="button" class="sw-btn sw-btn-notes-toggle" id="script-writer-notes-toggle-btn" title="View Review Notes" style="display:none;"><span class="sw-notes-pill-label">Notes</span> <span class="sw-notes-pill-count" id="sw-notes-total-count">0</span></button>
+                        <button type="button" class="sw-btn sw-btn-revisions" id="script-writer-revisions-btn" title="Revision History &amp; Redline Diff">Revisions</button>
+                        <span class="sw-divider"></span>
                         <span id="script-writer-status" class="sw-status" aria-live="polite">saved</span>
                     </div>
                 </div>
@@ -884,6 +888,25 @@ function script_writer_render_screen_html( $current_title, $saved_content, $curr
                     </div>
                 </div>
                 <textarea id="script-writer-textarea" data-script-id="<?php echo esc_attr( $current_script_id ); ?>" data-visibility="<?php echo esc_attr( $current_visibility ); ?>" placeholder="" autofocus spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Writing Canvas"><?php echo esc_textarea( $saved_content ); ?></textarea>
+
+                <!-- Minimal Review & Revision Gutter (Icon-Free Line Pills · 1 & Revision Marks *) -->
+                <div id="sw-review-gutter" class="sw-review-gutter" aria-hidden="true"></div>
+
+                <!-- Floating Review Note Anchor Popover (Triggered from Context Menu / Alt+C) -->
+                <div id="sw-review-popover" class="sw-review-popover" style="display:none;" role="dialog" aria-label="Review Note">
+                    <div class="sw-popover-header">
+                        <span class="sw-popover-title">Review Note</span>
+                        <button type="button" class="sw-popover-close-btn" id="sw-popover-close-btn" title="Cancel (Esc)">&times;</button>
+                    </div>
+                    <div class="sw-popover-body">
+                        <div class="sw-popover-quote" id="sw-popover-quote" style="display:none;"></div>
+                        <textarea class="sw-popover-input" id="sw-popover-text" placeholder="Type review feedback or note..." rows="3"></textarea>
+                        <div class="sw-popover-actions">
+                            <button type="button" class="sw-btn sw-btn-primary" id="sw-popover-save-btn">Save Note</button>
+                            <button type="button" class="sw-btn" id="sw-popover-cancel-btn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Floating Right-Click Quick Tools Context Menu (alongside blinking cursor) -->
@@ -900,11 +923,54 @@ function script_writer_render_screen_html( $current_title, $saved_content, $curr
                     <button type="button" class="sw-ctx-btn" data-action="bullet" title="Bullet List">&bull;</button>
                     <button type="button" class="sw-ctx-btn" data-action="comment" title="Comment (Ctrl+/)">//</button>
                     <span class="sw-ctx-divider"></span>
+                    <button type="button" class="sw-ctx-btn sw-ctx-btn-note" data-action="review-note" title="Add Review Note (Alt+C)">Note</button>
+                    <span class="sw-ctx-divider"></span>
                     <button type="button" class="sw-ctx-btn" data-action="indent" title="Indent 4 Spaces (Tab)">Indent</button>
                     <button type="button" class="sw-ctx-btn" data-action="outdent" title="Outdent (Shift+Tab)">Outdent</button>
                     <span class="sw-ctx-divider"></span>
                     <button type="button" class="sw-ctx-btn" data-action="copy" title="Copy (Ctrl+C)">Copy</button>
                     <button type="button" class="sw-ctx-btn sw-ctx-btn-save" data-action="save" title="Save Writing (Ctrl+S)">Save</button>
+                </div>
+            </div>
+
+            <!-- Slide-Out Review Notes Drawer -->
+            <div id="sw-review-drawer" class="sw-side-drawer" style="display:none;" role="region" aria-label="Script Review Notes">
+                <div class="sw-drawer-header">
+                    <div class="sw-drawer-title-wrap">
+                        <h3 class="sw-drawer-title">Review Notes</h3>
+                        <span class="sw-drawer-badge" id="sw-drawer-notes-count">0</span>
+                    </div>
+                    <button type="button" class="sw-drawer-close-btn" id="sw-review-drawer-close-btn" title="Close (Esc)">&times;</button>
+                </div>
+                <div class="sw-drawer-body" id="sw-review-drawer-list">
+                    <div class="sw-drawer-empty">No review notes on this writing yet. Right-click text or press Alt+C to add a note.</div>
+                </div>
+            </div>
+
+            <!-- Slide-Out Revision History & Redline Diff Drawer (Core Feature) -->
+            <div id="sw-revisions-drawer" class="sw-side-drawer" style="display:none;" role="region" aria-label="Revision History">
+                <div class="sw-drawer-header">
+                    <div class="sw-drawer-title-wrap">
+                        <h3 class="sw-drawer-title">Revision History</h3>
+                        <span class="sw-drawer-badge" id="sw-drawer-rev-count">0 drafts</span>
+                    </div>
+                    <button type="button" class="sw-drawer-close-btn" id="sw-revisions-drawer-close-btn" title="Close (Esc)">&times;</button>
+                </div>
+                <div class="sw-drawer-body">
+                    <div class="sw-rev-intro">Compare past saved versions with live redline diffs or restore an earlier draft.</div>
+                    <div class="sw-rev-list" id="sw-revisions-list">
+                        <div class="sw-drawer-empty">Loading revisions...</div>
+                    </div>
+                    <div class="sw-rev-diff-wrap" id="sw-rev-diff-wrap" style="display:none;">
+                        <div class="sw-rev-diff-header">
+                            <span class="sw-rev-diff-title" id="sw-rev-diff-title">Diff against current</span>
+                            <button type="button" class="sw-btn sw-btn-sm" id="sw-rev-diff-close-btn">Back to List</button>
+                        </div>
+                        <div class="sw-rev-diff-content" id="sw-rev-diff-content"></div>
+                        <div class="sw-rev-diff-actions">
+                            <button type="button" class="sw-btn sw-btn-primary" id="sw-rev-restore-btn">Restore this Draft</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1052,21 +1118,82 @@ function script_writer_render_screen_html( $current_title, $saved_content, $curr
                     <aside class="sw-export-sidebar">
                         <div class="sw-export-field-group">
                             <label class="sw-export-label"><?php esc_html_e( 'Export Format', 'starter-plugin' ); ?></label>
+                            <?php $is_mp_active = function_exists( 'andika_mp_is_enabled' ) && andika_mp_is_enabled(); ?>
                             <div class="sw-export-format-badge">
                                 <div class="sw-export-format-header">
                                     <span class="sw-export-format-indicator"></span>
-                                    <span class="sw-export-format-title"><?php esc_html_e( 'Filmscript Manuscript', 'starter-plugin' ); ?></span>
+                                    <span class="sw-export-format-title" id="sw-export-format-title"><?php echo $is_mp_active ? esc_html__( 'Filmscript Manuscript', 'starter-plugin' ) : esc_html__( 'Standard Manuscript', 'starter-plugin' ); ?></span>
                                 </div>
                                 <div class="sw-export-format-meta">
-                                    <span class="sw-export-format-tag"><?php esc_html_e( '12pt Courier Final Draft', 'starter-plugin' ); ?></span>
+                                    <span class="sw-export-format-tag" id="sw-export-format-tag"><?php echo $is_mp_active ? esc_html__( '12pt Courier Final Draft', 'starter-plugin' ) : esc_html__( '12pt Submission Manuscript', 'starter-plugin' ); ?></span>
                                     <span class="sw-ext-meta-sep">&bull;</span>
-                                    <span class="sw-export-format-sub"><?php esc_html_e( 'Hollywood Shooting Script Standard', 'starter-plugin' ); ?></span>
+                                    <span class="sw-export-format-sub" id="sw-export-format-sub"><?php echo $is_mp_active ? esc_html__( 'Hollywood Shooting Script Standard (12YAS)', 'starter-plugin' ) : esc_html__( 'Distraction-Free Standard', 'starter-plugin' ); ?></span>
                                 </div>
                             </div>
                             <select id="sw-export-style" class="sw-export-select" style="display:none;">
                                 <option value="filmscript" selected>Filmscript Manuscript (12pt Courier)</option>
                             </select>
-                            <p class="sw-export-help" id="sw-export-help"><?php esc_html_e( 'Authentic Hollywood shooting script standard with 12pt Courier typography, dual scene numbers, running headers, and intuitive CONTINUED recognition.', 'starter-plugin' ); ?></p>
+                            <p class="sw-export-help" id="sw-export-help"><?php echo $is_mp_active ? esc_html__( 'Authentic Hollywood shooting script standard with 12pt Courier typography, dual scene numbers, running headers, and intuitive CONTINUED recognition.', 'starter-plugin' ) : esc_html__( 'Clean, submission-ready manuscript formatted with standard 12pt typography and page breaks.', 'starter-plugin' ); ?></p>
+                        </div>
+
+                        <!-- Scenes & Sides Scope Switcher (Activated by Movie Production Extension) -->
+                        <div class="sw-export-field-group sw-export-scope-wrap" id="sw-export-scope-wrap" style="display:none;">
+                            <label class="sw-export-label"><?php esc_html_e( 'Export Scope', 'starter-plugin' ); ?></label>
+                            <div class="sw-scope-btn-group" role="group" aria-label="Export Scope">
+                                <button type="button" class="sw-scope-btn active" id="sw-scope-full-btn" data-scope="full"><?php esc_html_e( 'Full Screenplay', 'starter-plugin' ); ?></button>
+                                <button type="button" class="sw-scope-btn" id="sw-scope-sides-btn" data-scope="sides"><?php esc_html_e( 'Scenes &amp; Sides', 'starter-plugin' ); ?></button>
+                            </div>
+                        </div>
+
+                        <!-- Production Sides Options Panel -->
+                        <div class="sw-sides-options-panel" id="sw-sides-options-panel" style="display:none;">
+                            <div class="sw-export-field-group">
+                                <label class="sw-export-label" for="sw-sides-char-select"><?php esc_html_e( 'Filter by Speaking Character', 'starter-plugin' ); ?></label>
+                                <select id="sw-sides-char-select" class="sw-export-select">
+                                    <option value=""><?php esc_html_e( '— All Speaking Cast —', 'starter-plugin' ); ?></option>
+                                </select>
+                            </div>
+
+                            <div class="sw-export-field-group">
+                                <div class="sw-sides-range-header">
+                                    <label class="sw-export-label"><?php esc_html_e( 'Scene Selection', 'starter-plugin' ); ?></label>
+                                    <span class="sw-sides-count-badge" id="sw-sides-selected-badge">0 selected</span>
+                                </div>
+                                <input type="text" id="sw-sides-range-input" class="sw-export-input" placeholder="<?php esc_attr_e( 'Type range e.g. 1-4, 8, 12', 'starter-plugin' ); ?>" />
+                                <div class="sw-sides-checklist-wrap">
+                                    <div class="sw-sides-checklist-actions">
+                                        <button type="button" class="sw-link-btn" id="sw-sides-select-all"><?php esc_html_e( 'Select All', 'starter-plugin' ); ?></button>
+                                        <span class="sw-ext-meta-sep">&bull;</span>
+                                        <button type="button" class="sw-link-btn" id="sw-sides-deselect-all"><?php esc_html_e( 'Deselect All', 'starter-plugin' ); ?></button>
+                                    </div>
+                                    <div class="sw-sides-scene-checklist" id="sw-sides-scene-checklist">
+                                        <!-- Checkboxes dynamically generated -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="sw-export-field-group">
+                                <label class="sw-export-label"><?php esc_html_e( 'Sides Options', 'starter-plugin' ); ?></label>
+                                <label class="sw-export-checkbox-label">
+                                    <input type="checkbox" id="sw-sides-opt-highlight" />
+                                    <span><?php esc_html_e( 'Highlight Target Character Lines', 'starter-plugin' ); ?></span>
+                                </label>
+                                <label class="sw-export-checkbox-label">
+                                    <input type="checkbox" id="sw-sides-opt-slip" checked />
+                                    <span><?php esc_html_e( 'Include Production Sides Slip', 'starter-plugin' ); ?></span>
+                                </label>
+                            </div>
+
+                            <div class="sw-sides-slip-fields" id="sw-sides-slip-fields">
+                                <div class="sw-export-field-group">
+                                    <label class="sw-export-label" for="sw-sides-day-input"><?php esc_html_e( 'Call Sheet Day / Note', 'starter-plugin' ); ?></label>
+                                    <input type="text" id="sw-sides-day-input" class="sw-export-input" placeholder="e.g. Day 4 of 35 - Main Unit" />
+                                </div>
+                                <div class="sw-export-field-group">
+                                    <label class="sw-export-label" for="sw-sides-target-input"><?php esc_html_e( 'Cast / Crew Recipient', 'starter-plugin' ); ?></label>
+                                    <input type="text" id="sw-sides-target-input" class="sw-export-input" placeholder="e.g. Solomon Sides / Camera Dept" />
+                                </div>
+                            </div>
                         </div>
 
                         <div class="sw-export-field-group">
@@ -2117,6 +2244,168 @@ add_action( 'wp_ajax_script_writer_rename_script', function () {
         'id'    => $id,
         'title' => $title,
     ) );
+} );
+
+// -----------------------------------------------------------------------------
+// IN-CONTEXT COMMENTS / REVIEW NOTES (ICON-FREE MINIMAL PILLS)
+// -----------------------------------------------------------------------------
+
+add_action( 'wp_ajax_script_writer_get_comments', function () {
+    check_ajax_referer( 'script_writer_nonce', 'nonce' );
+
+    $script_id = isset( $_GET['script_id'] ) ? absint( $_GET['script_id'] ) : 0;
+    if ( ! $script_id ) {
+        wp_send_json_error( array( 'message' => __( 'Invalid script ID', 'starter-plugin' ) ), 400 );
+    }
+
+    $comments = get_post_meta( $script_id, '_sw_script_comments', true );
+    if ( ! is_array( $comments ) ) {
+        $comments = array();
+    }
+
+    wp_send_json_success( array( 'comments' => $comments ) );
+} );
+
+add_action( 'wp_ajax_script_writer_save_comment', function () {
+    check_ajax_referer( 'script_writer_nonce', 'nonce' );
+
+    if ( ! is_user_logged_in() ) {
+        wp_send_json_error( array( 'message' => __( 'Unauthorized', 'starter-plugin' ) ), 401 );
+    }
+
+    $script_id = isset( $_POST['script_id'] ) ? absint( $_POST['script_id'] ) : 0;
+    if ( ! $script_id ) {
+        wp_send_json_error( array( 'message' => __( 'Invalid script ID', 'starter-plugin' ) ), 400 );
+    }
+
+    $comment_id = ! empty( $_POST['comment_id'] ) ? sanitize_key( $_POST['comment_id'] ) : 'c_' . wp_generate_password( 10, false );
+    $line       = isset( $_POST['line'] ) ? absint( $_POST['line'] ) : 1;
+    $quote      = isset( $_POST['quote'] ) ? sanitize_text_field( wp_unslash( $_POST['quote'] ) ) : '';
+    $text       = isset( $_POST['text'] ) ? sanitize_textarea_field( wp_unslash( $_POST['text'] ) ) : '';
+
+    if ( empty( $text ) ) {
+        wp_send_json_error( array( 'message' => __( 'Comment text cannot be empty', 'starter-plugin' ) ), 400 );
+    }
+
+    $user = wp_get_current_user();
+    $comments = get_post_meta( $script_id, '_sw_script_comments', true );
+    if ( ! is_array( $comments ) ) {
+        $comments = array();
+    }
+
+    $found = false;
+    foreach ( $comments as &$c ) {
+        if ( isset( $c['id'] ) && $c['id'] === $comment_id ) {
+            $c['text']    = $text;
+            $c['line']    = $line;
+            $c['updated'] = current_time( 'mysql' );
+            $found        = true;
+            break;
+        }
+    }
+    unset( $c );
+
+    if ( ! $found ) {
+        $new_comment = array(
+            'id'       => $comment_id,
+            'line'     => $line,
+            'quote'    => $quote,
+            'text'     => $text,
+            'author'   => $user->display_name ?: $user->user_login,
+            'authorId' => $user->ID,
+            'created'  => current_time( 'mysql' ),
+            'resolved' => false,
+        );
+        $comments[] = $new_comment;
+    }
+
+    update_post_meta( $script_id, '_sw_script_comments', $comments );
+
+    wp_send_json_success( array(
+        'comments' => $comments,
+        'saved_id' => $comment_id,
+    ) );
+} );
+
+add_action( 'wp_ajax_script_writer_resolve_comment', function () {
+    check_ajax_referer( 'script_writer_nonce', 'nonce' );
+
+    $script_id  = isset( $_POST['script_id'] ) ? absint( $_POST['script_id'] ) : 0;
+    $comment_id = isset( $_POST['comment_id'] ) ? sanitize_key( $_POST['comment_id'] ) : '';
+    $resolved   = ! empty( $_POST['resolved'] ) && $_POST['resolved'] === '1';
+
+    $comments = get_post_meta( $script_id, '_sw_script_comments', true );
+    if ( ! is_array( $comments ) ) {
+        $comments = array();
+    }
+
+    foreach ( $comments as &$c ) {
+        if ( isset( $c['id'] ) && $c['id'] === $comment_id ) {
+            $c['resolved'] = $resolved;
+            break;
+        }
+    }
+    unset( $c );
+
+    update_post_meta( $script_id, '_sw_script_comments', $comments );
+    wp_send_json_success( array( 'comments' => $comments ) );
+} );
+
+add_action( 'wp_ajax_script_writer_delete_comment', function () {
+    check_ajax_referer( 'script_writer_nonce', 'nonce' );
+
+    $script_id  = isset( $_POST['script_id'] ) ? absint( $_POST['script_id'] ) : 0;
+    $comment_id = isset( $_POST['comment_id'] ) ? sanitize_key( $_POST['comment_id'] ) : '';
+
+    $comments = get_post_meta( $script_id, '_sw_script_comments', true );
+    if ( ! is_array( $comments ) ) {
+        $comments = array();
+    }
+
+    $filtered = array();
+    foreach ( $comments as $c ) {
+        if ( isset( $c['id'] ) && $c['id'] === $comment_id ) {
+            continue;
+        }
+        $filtered[] = $c;
+    }
+
+    update_post_meta( $script_id, '_sw_script_comments', $filtered );
+    wp_send_json_success( array( 'comments' => $filtered ) );
+} );
+
+// -----------------------------------------------------------------------------
+// TRACK CHANGES & REVISIONS VIEWER (IN CORE PLUGIN)
+// -----------------------------------------------------------------------------
+
+add_action( 'wp_ajax_script_writer_get_revisions', function () {
+    check_ajax_referer( 'script_writer_nonce', 'nonce' );
+
+    $script_id = isset( $_GET['script_id'] ) ? absint( $_GET['script_id'] ) : 0;
+    if ( ! $script_id ) {
+        wp_send_json_error( array( 'message' => __( 'Invalid script ID', 'starter-plugin' ) ), 400 );
+    }
+
+    $revs = wp_get_post_revisions( $script_id, array( 'order' => 'DESC', 'numberposts' => 25 ) );
+    $list = array();
+
+    foreach ( $revs as $rev ) {
+        $author = get_userdata( $rev->post_author );
+        $raw = get_post_meta( $rev->ID, '_script_writer_raw_content', true );
+        if ( empty( $raw ) ) {
+            $raw = strip_tags( $rev->post_content );
+        }
+        $list[] = array(
+            'id'        => $rev->ID,
+            'title'     => $rev->post_title,
+            'date'      => get_the_date( 'Y-m-d H:i:s', $rev ),
+            'humanDate' => human_time_diff( strtotime( $rev->post_modified ), current_time( 'timestamp' ) ) . ' ago',
+            'author'    => $author ? ( $author->display_name ?: $author->user_login ) : 'Unknown',
+            'content'   => $raw,
+        );
+    }
+
+    wp_send_json_success( array( 'revisions' => $list ) );
 } );
 
 /**

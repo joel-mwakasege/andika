@@ -184,6 +184,41 @@
         var settingsModalTitle = document.getElementById( 'sw-settings-modal-title' );
         var settingsHeaderSub = document.getElementById( 'sw-settings-header-sub' );
 
+        // Review Notes & Track Changes Elements
+        var reviewGutter = document.getElementById( 'sw-review-gutter' );
+        var reviewPopover = document.getElementById( 'sw-review-popover' );
+        var reviewPopoverText = document.getElementById( 'sw-popover-text' );
+        var reviewPopoverQuote = document.getElementById( 'sw-popover-quote' );
+        var reviewPopoverSaveBtn = document.getElementById( 'sw-popover-save-btn' );
+        var reviewPopoverCancelBtn = document.getElementById( 'sw-popover-cancel-btn' );
+        var reviewPopoverCloseBtn = document.getElementById( 'sw-popover-close-btn' );
+        var reviewDrawer = document.getElementById( 'sw-review-drawer' );
+        var reviewDrawerList = document.getElementById( 'sw-review-drawer-list' );
+        var reviewDrawerCloseBtn = document.getElementById( 'sw-review-drawer-close-btn' );
+        var reviewDrawerCount = document.getElementById( 'sw-drawer-notes-count' );
+        var notesToggleBtn = document.getElementById( 'script-writer-notes-toggle-btn' );
+        var notesTotalCount = document.getElementById( 'sw-notes-total-count' );
+        var trackBtn = document.getElementById( 'script-writer-track-btn' );
+        var revisionsBtn = document.getElementById( 'script-writer-revisions-btn' );
+        var revisionsDrawer = document.getElementById( 'sw-revisions-drawer' );
+        var revisionsDrawerCloseBtn = document.getElementById( 'sw-revisions-drawer-close-btn' );
+        var revisionsList = document.getElementById( 'sw-revisions-list' );
+        var revisionsCount = document.getElementById( 'sw-drawer-rev-count' );
+        var revDiffWrap = document.getElementById( 'sw-rev-diff-wrap' );
+        var revDiffContent = document.getElementById( 'sw-rev-diff-content' );
+        var revDiffCloseBtn = document.getElementById( 'sw-rev-diff-close-btn' );
+        var revRestoreBtn = document.getElementById( 'sw-rev-restore-btn' );
+
+        var currentComments = [];
+        var activeNotePopoverTarget = null;
+        var isTrackChangesActive = false;
+        var baselineLines = [];
+        var changedLineIndices = new Set();
+        var currentRevisions = [];
+        var activeDiffRevision = null;
+        var exportProviders = {};
+        var activeExportProviderId = 'standard';
+
         if ( ! textarea && ! authView ) {
             return;
         }
@@ -847,10 +882,14 @@
                     indentLines( false );
                     break;
                 case 'copy':
+                case 'copy':
                     copyScript();
                     break;
                 case 'save':
                     saveScriptExplicitly();
+                    break;
+                case 'review-note':
+                    triggerReviewNoteFromSelection();
                     break;
             }
         }
@@ -894,7 +933,482 @@
             ctxMenu.classList.remove( 'visible' );
         }
 
-        // 4d. Screenplay Manuscript Parser & Export Engine (12YAS Filmscript Standard)
+        // ---------------------------------------------------------------------
+        // 4c-1. In-Context Review Notes (Icon-Free Minimal Line Pills · 1)
+        // ---------------------------------------------------------------------
+        function getActiveScriptId() {
+            var elId = textarea ? textarea.getAttribute( 'data-script-id' ) : 0;
+            return parseInt( elId, 10 ) || ( window.scriptWriterData ? window.scriptWriterData.scriptId : 0 ) || 0;
+        }
+
+        function triggerReviewNoteFromSelection() {
+            if ( ! textarea ) return;
+            var start = textarea.selectionStart || 0;
+            var end = textarea.selectionEnd || 0;
+            var textBefore = textarea.value.substring( 0, start );
+            var line = ( textBefore.match( /\n/g ) || [] ).length + 1;
+            var quote = textarea.value.substring( start, end ).trim();
+            if ( ! quote ) {
+                var lines = textarea.value.split( '\n' );
+                quote = ( lines[ line - 1 ] || '' ).trim();
+            }
+            if ( quote.length > 80 ) {
+                quote = quote.substring( 0, 77 ) + '...';
+            }
+            openNotePopover( line, quote );
+        }
+
+        function openNotePopover( line, quote ) {
+            if ( ! reviewPopover || ! textarea ) return;
+            activeNotePopoverTarget = { line: line, quote: quote };
+
+            if ( reviewPopoverQuote ) {
+                if ( quote ) {
+                    reviewPopoverQuote.textContent = quote;
+                    reviewPopoverQuote.style.display = 'block';
+                } else {
+                    reviewPopoverQuote.style.display = 'none';
+                }
+            }
+            if ( reviewPopoverText ) {
+                reviewPopoverText.value = '';
+            }
+
+            var basePadTop = 72;
+            var lineHeight = 31.5;
+            var targetY = basePadTop + ( ( line - 1 ) * lineHeight ) - textarea.scrollTop;
+            targetY = Math.max( 80, Math.min( window.innerHeight - 240, targetY ) );
+
+            reviewPopover.style.top = targetY + 'px';
+            reviewPopover.style.right = '90px';
+            reviewPopover.style.display = 'block';
+
+            setTimeout( function() {
+                if ( reviewPopoverText ) reviewPopoverText.focus();
+            }, 60 );
+        }
+
+        function closeReviewPopover() {
+            if ( reviewPopover ) {
+                reviewPopover.style.display = 'none';
+            }
+            activeNotePopoverTarget = null;
+        }
+
+        function submitReviewNote() {
+            if ( ! reviewPopoverText || ! activeNotePopoverTarget ) return;
+            var text = reviewPopoverText.value.trim();
+            if ( ! text ) {
+                showToast( 'Note cannot be empty' );
+                return;
+            }
+
+            var scriptId = getActiveScriptId();
+            if ( ! scriptId ) {
+                showToast( 'Save writing first to attach notes' );
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append( 'action', 'script_writer_save_comment' );
+            formData.append( 'nonce', ( window.scriptWriterData && window.scriptWriterData.nonce ) || '' );
+            formData.append( 'script_id', scriptId );
+            formData.append( 'line', activeNotePopoverTarget.line );
+            formData.append( 'quote', activeNotePopoverTarget.quote || '' );
+            formData.append( 'text', text );
+
+            fetch( window.scriptWriterData.ajaxUrl, {
+                method: 'POST',
+                body: formData
+            } )
+            .then( function( r ) { return r.json(); } )
+            .then( function( res ) {
+                if ( res.success && res.data && res.data.comments ) {
+                    currentComments = res.data.comments;
+                    updateNotesUi();
+                    closeReviewPopover();
+                    showToast( 'Review note posted' );
+                } else {
+                    showToast( ( res.data && res.data.message ) || 'Error saving note' );
+                }
+            } )
+            .catch( function( err ) {
+                console.error( err );
+                showToast( 'Error connecting to server' );
+            } );
+        }
+
+        function loadComments( scriptId ) {
+            if ( ! scriptId || ! window.scriptWriterData ) {
+                currentComments = [];
+                updateNotesUi();
+                return;
+            }
+            fetch( window.scriptWriterData.ajaxUrl + '?action=script_writer_get_comments&script_id=' + scriptId + '&nonce=' + ( window.scriptWriterData.nonce || '' ) )
+                .then( function( r ) { return r.json(); } )
+                .then( function( res ) {
+                    if ( res.success && res.data && res.data.comments ) {
+                        currentComments = res.data.comments;
+                        updateNotesUi();
+                    }
+                } )
+                .catch( function( e ) { console.warn( 'Could not load comments', e ); } );
+        }
+
+        function resolveComment( commentId, resolved ) {
+            var scriptId = getActiveScriptId();
+            if ( ! scriptId || ! window.scriptWriterData ) return;
+            var fd = new FormData();
+            fd.append( 'action', 'script_writer_resolve_comment' );
+            fd.append( 'nonce', window.scriptWriterData.nonce || '' );
+            fd.append( 'script_id', scriptId );
+            fd.append( 'comment_id', commentId );
+            fd.append( 'resolved', resolved ? '1' : '0' );
+
+            fetch( window.scriptWriterData.ajaxUrl, { method: 'POST', body: fd } )
+                .then( function( r ) { return r.json(); } )
+                .then( function( res ) {
+                    if ( res.success && res.data && res.data.comments ) {
+                        currentComments = res.data.comments;
+                        updateNotesUi();
+                    }
+                } );
+        }
+
+        function deleteComment( commentId ) {
+            var scriptId = getActiveScriptId();
+            if ( ! scriptId || ! window.scriptWriterData ) return;
+            var fd = new FormData();
+            fd.append( 'action', 'script_writer_delete_comment' );
+            fd.append( 'nonce', window.scriptWriterData.nonce || '' );
+            fd.append( 'script_id', scriptId );
+            fd.append( 'comment_id', commentId );
+
+            fetch( window.scriptWriterData.ajaxUrl, { method: 'POST', body: fd } )
+                .then( function( r ) { return r.json(); } )
+                .then( function( res ) {
+                    if ( res.success && res.data && res.data.comments ) {
+                        currentComments = res.data.comments;
+                        updateNotesUi();
+                        showToast( 'Note deleted' );
+                    }
+                } );
+        }
+
+        function updateNotesUi() {
+            var total = ( currentComments || [] ).length;
+            var activeCount = ( currentComments || [] ).filter( function( c ) { return ! c.resolved; } ).length;
+
+            if ( notesToggleBtn ) {
+                if ( total > 0 ) {
+                    notesToggleBtn.style.display = 'inline-flex';
+                    if ( notesTotalCount ) notesTotalCount.textContent = activeCount;
+                } else {
+                    notesToggleBtn.style.display = 'none';
+                }
+            }
+            if ( reviewDrawerCount ) {
+                reviewDrawerCount.textContent = total + ( total === 1 ? ' note' : ' notes' );
+            }
+
+            renderReviewGutter();
+            renderReviewDrawerList();
+        }
+
+        function renderReviewGutter() {
+            if ( ! reviewGutter || ! textarea ) return;
+            reviewGutter.innerHTML = '';
+
+            var scrollTop = textarea.scrollTop;
+            var clientHeight = textarea.clientHeight;
+            var basePadTop = 72;
+            var lineHeight = 31.5;
+
+            // 1. Hollywood Revision Marks (*) when Track Changes is ON
+            if ( isTrackChangesActive && changedLineIndices.size > 0 ) {
+                changedLineIndices.forEach( function( lineIdx ) {
+                    var topPos = basePadTop + ( lineIdx * lineHeight ) - scrollTop;
+                    if ( topPos >= 40 && topPos <= clientHeight - 20 ) {
+                        var mark = document.createElement( 'div' );
+                        mark.className = 'sw-rev-mark';
+                        mark.textContent = '*';
+                        mark.title = 'Revision on line ' + ( lineIdx + 1 );
+                        mark.style.top = topPos + 'px';
+                        reviewGutter.appendChild( mark );
+                    }
+                } );
+            }
+
+            // 2. Icon-Free Minimal Line Pills (· 1)
+            if ( currentComments && currentComments.length > 0 ) {
+                var lineMap = {};
+                currentComments.forEach( function( c ) {
+                    var l = c.line || 1;
+                    if ( ! lineMap[ l ] ) lineMap[ l ] = [];
+                    lineMap[ l ].push( c );
+                } );
+
+                Object.keys( lineMap ).forEach( function( lineStr ) {
+                    var lineNum = parseInt( lineStr, 10 );
+                    var lineIdx = Math.max( 0, lineNum - 1 );
+                    var topPos = basePadTop + ( lineIdx * lineHeight ) - scrollTop;
+
+                    if ( topPos >= 40 && topPos <= clientHeight - 20 ) {
+                        var notesOnLine = lineMap[ lineStr ];
+                        var allResolved = notesOnLine.every( function( n ) { return n.resolved; } );
+                        var pill = document.createElement( 'div' );
+                        pill.className = 'sw-line-pill' + ( allResolved ? ' resolved' : '' );
+                        pill.textContent = '· ' + notesOnLine.length;
+                        pill.title = notesOnLine.length + ( notesOnLine.length === 1 ? ' note' : ' notes' ) + ' on line ' + lineNum;
+                        pill.style.top = ( topPos + 4 ) + 'px';
+
+                        pill.addEventListener( 'click', function( e ) {
+                            e.stopPropagation();
+                            openReviewDrawer();
+                            highlightNoteInDrawer( lineNum );
+                        } );
+
+                        reviewGutter.appendChild( pill );
+                    }
+                } );
+            }
+        }
+
+        function openReviewDrawer() {
+            if ( reviewDrawer ) reviewDrawer.classList.add( 'active' );
+            renderReviewDrawerList();
+        }
+
+        function closeReviewDrawer() {
+            if ( reviewDrawer ) reviewDrawer.classList.remove( 'active' );
+        }
+
+        function renderReviewDrawerList() {
+            if ( ! reviewDrawerList ) return;
+            if ( ! currentComments || currentComments.length === 0 ) {
+                reviewDrawerList.innerHTML = '<div class="sw-drawer-empty">No review notes on this writing yet.<br>Right-click text or press Alt+C to add a note.</div>';
+                return;
+            }
+
+            var sorted = currentComments.slice().sort( function( a, b ) {
+                return ( a.line || 1 ) - ( b.line || 1 );
+            } );
+
+            var html = '';
+            sorted.forEach( function( c ) {
+                var isRes = !! c.resolved;
+                html += '<div class="sw-note-card' + ( isRes ? ' resolved' : '' ) + '" id="sw-note-' + escapeHtml( c.id ) + '" data-line="' + c.line + '">' +
+                    '<div class="sw-note-header">' +
+                        '<span class="sw-note-author">' + escapeHtml( c.author || 'Reviewer' ) + '</span>' +
+                        '<span class="sw-note-line">Line ' + ( c.line || 1 ) + '</span>' +
+                    '</div>';
+                if ( c.quote ) {
+                    html += '<div class="sw-note-quote">“' + escapeHtml( c.quote ) + '”</div>';
+                }
+                html += '<div class="sw-note-text">' + escapeHtml( c.text || '' ) + '</div>' +
+                    '<div class="sw-note-actions">' +
+                        '<button type="button" class="sw-note-btn sw-note-btn-jump" data-line="' + ( c.line || 1 ) + '">Jump</button>' +
+                        '<button type="button" class="sw-note-btn sw-note-btn-res" data-id="' + escapeHtml( c.id ) + '" data-res="' + ( isRes ? '0' : '1' ) + '">' + ( isRes ? 'Reopen' : 'Resolve' ) + '</button>' +
+                        '<button type="button" class="sw-note-btn sw-note-btn-danger" data-id="' + escapeHtml( c.id ) + '">Delete</button>' +
+                    '</div>' +
+                '</div>';
+            } );
+
+            reviewDrawerList.innerHTML = html;
+
+            reviewDrawerList.querySelectorAll( '.sw-note-btn-jump' ).forEach( function( b ) {
+                b.addEventListener( 'click', function() {
+                    var l = parseInt( this.getAttribute( 'data-line' ), 10 ) || 1;
+                    jumpToLine( l );
+                } );
+            } );
+            reviewDrawerList.querySelectorAll( '.sw-note-btn-res' ).forEach( function( b ) {
+                b.addEventListener( 'click', function() {
+                    var id = this.getAttribute( 'data-id' );
+                    var res = this.getAttribute( 'data-res' ) === '1';
+                    resolveComment( id, res );
+                } );
+            } );
+            reviewDrawerList.querySelectorAll( '.sw-note-btn-danger' ).forEach( function( b ) {
+                b.addEventListener( 'click', function() {
+                    var id = this.getAttribute( 'data-id' );
+                    if ( confirm( 'Delete this review note?' ) ) {
+                        deleteComment( id );
+                    }
+                } );
+            } );
+        }
+
+        function highlightNoteInDrawer( line ) {
+            setTimeout( function() {
+                var card = reviewDrawerList ? reviewDrawerList.querySelector( '.sw-note-card[data-line="' + line + '"]' ) : null;
+                if ( card ) {
+                    card.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+                    card.style.borderColor = '#38bdf8';
+                    setTimeout( function() { card.style.borderColor = ''; }, 1500 );
+                }
+            }, 100 );
+        }
+
+        function jumpToLine( lineNum ) {
+            if ( ! textarea ) return;
+            var lines = textarea.value.split( '\n' );
+            var targetIdx = Math.max( 0, lineNum - 1 );
+            var charPos = 0;
+            for ( var i = 0; i < targetIdx && i < lines.length; i++ ) {
+                charPos += lines[ i ].length + 1;
+            }
+            textarea.focus();
+            textarea.setSelectionRange( charPos, charPos );
+            var lineHeight = 31.5;
+            textarea.scrollTop = Math.max( 0, ( targetIdx * lineHeight ) - 120 );
+            renderReviewGutter();
+        }
+
+        // ---------------------------------------------------------------------
+        // 4c-2. Track Changes & Revisions Viewer (In Core Plugin)
+        // ---------------------------------------------------------------------
+        function toggleTrackChanges() {
+            isTrackChangesActive = ! isTrackChangesActive;
+            if ( isTrackChangesActive ) {
+                baselineLines = textarea.value.split( '\n' );
+                changedLineIndices.clear();
+                if ( trackBtn ) trackBtn.classList.add( 'active' );
+                showToast( 'Track Changes ON: Revision marks (*) active' );
+            } else {
+                changedLineIndices.clear();
+                if ( trackBtn ) trackBtn.classList.remove( 'active' );
+                showToast( 'Track Changes OFF' );
+            }
+            renderReviewGutter();
+        }
+
+        function updateTrackChangesDiff() {
+            if ( ! isTrackChangesActive || ! textarea ) return;
+            var curLines = textarea.value.split( '\n' );
+            changedLineIndices.clear();
+            for ( var i = 0; i < curLines.length; i++ ) {
+                if ( i >= baselineLines.length || curLines[ i ] !== baselineLines[ i ] ) {
+                    changedLineIndices.add( i );
+                }
+            }
+        }
+
+        function openRevisionsDrawer() {
+            var scriptId = getActiveScriptId();
+            if ( ! scriptId ) {
+                showToast( 'Save writing first to see revisions' );
+                return;
+            }
+            if ( revisionsDrawer ) revisionsDrawer.classList.add( 'active' );
+            if ( revDiffWrap ) revDiffWrap.style.display = 'none';
+            if ( revisionsList ) {
+                revisionsList.style.display = 'flex';
+                revisionsList.innerHTML = '<div class="sw-drawer-empty">Loading revisions...</div>';
+            }
+
+            fetch( window.scriptWriterData.ajaxUrl + '?action=script_writer_get_revisions&script_id=' + scriptId + '&nonce=' + ( window.scriptWriterData.nonce || '' ) )
+                .then( function( r ) { return r.json(); } )
+                .then( function( res ) {
+                    if ( res.success && res.data && res.data.revisions && res.data.revisions.length > 0 ) {
+                        currentRevisions = res.data.revisions;
+                        renderRevisionsList();
+                    } else {
+                        if ( revisionsList ) revisionsList.innerHTML = '<div class="sw-drawer-empty">No past drafts saved yet.<br>Drafts are saved automatically as you write.</div>';
+                    }
+                } )
+                .catch( function() {
+                    if ( revisionsList ) revisionsList.innerHTML = '<div class="sw-drawer-empty">Could not load revisions.</div>';
+                } );
+        }
+
+        function closeRevisionsDrawer() {
+            if ( revisionsDrawer ) revisionsDrawer.classList.remove( 'active' );
+        }
+
+        function renderRevisionsList() {
+            if ( ! revisionsList ) return;
+            if ( revisionsCount ) revisionsCount.textContent = currentRevisions.length + ( currentRevisions.length === 1 ? ' draft' : ' drafts' );
+
+            var html = '';
+            currentRevisions.forEach( function( rev, idx ) {
+                html += '<div class="sw-rev-item" data-rev-idx="' + idx + '">' +
+                    '<div class="sw-rev-meta">' +
+                        '<span class="sw-rev-date">' + escapeHtml( rev.humanDate || rev.date ) + '</span>' +
+                        '<span class="sw-rev-author">' + escapeHtml( rev.author || 'Author' ) + '</span>' +
+                    '</div>' +
+                    '<div style="font-size:11px;color:#64748b;">' + escapeHtml( rev.date ) + ' &bull; ' + ( rev.content ? rev.content.split( /\s+/ ).length : 0 ) + ' words</div>' +
+                '</div>';
+            } );
+
+            revisionsList.innerHTML = html;
+            revisionsList.querySelectorAll( '.sw-rev-item' ).forEach( function( item ) {
+                item.addEventListener( 'click', function() {
+                    var idx = parseInt( this.getAttribute( 'data-rev-idx' ), 10 );
+                    if ( currentRevisions[ idx ] ) {
+                        showRevisionDiff( currentRevisions[ idx ] );
+                    }
+                } );
+            } );
+        }
+
+        function showRevisionDiff( rev ) {
+            activeDiffRevision = rev;
+            if ( ! revDiffWrap || ! revDiffContent ) return;
+            if ( revisionsList ) revisionsList.style.display = 'none';
+            revDiffWrap.style.display = 'flex';
+            var titleEl = document.getElementById( 'sw-rev-diff-title' );
+            if ( titleEl ) titleEl.textContent = 'Diff vs ' + ( rev.humanDate || rev.date );
+
+            var oldLines = ( rev.content || '' ).split( '\n' );
+            var newLines = textarea.value.split( '\n' );
+            revDiffContent.innerHTML = computeSimpleRedlineDiff( oldLines, newLines );
+        }
+
+        function computeSimpleRedlineDiff( oldLines, newLines ) {
+            var html = '';
+            var o = 0, n = 0;
+
+            while ( o < oldLines.length || n < newLines.length ) {
+                if ( o < oldLines.length && n < newLines.length && oldLines[ o ] === newLines[ n ] ) {
+                    html += '<div style="color:#94a3b8;">  ' + escapeHtml( oldLines[ o ] || ' ' ) + '</div>';
+                    o++;
+                    n++;
+                } else if ( o < oldLines.length && ( n >= newLines.length || ! newLines.includes( oldLines[ o ] ) ) ) {
+                    html += '<div class="sw-diff-del">− ' + escapeHtml( oldLines[ o ] || ' ' ) + '</div>';
+                    o++;
+                } else if ( n < newLines.length ) {
+                    html += '<div class="sw-diff-ins">+ ' + escapeHtml( newLines[ n ] || ' ' ) + '</div>';
+                    n++;
+                } else {
+                    o++;
+                    n++;
+                }
+            }
+            return html;
+        }
+
+        function restoreActiveRevision() {
+            if ( ! activeDiffRevision || ! textarea ) return;
+            if ( confirm( 'Restore this draft? Current unsaved edits will be replaced.' ) ) {
+                textarea.value = activeDiffRevision.content || '';
+                saveScriptExplicitly();
+                updateStats();
+                closeRevisionsDrawer();
+                showToast( 'Restored draft from ' + ( activeDiffRevision.humanDate || activeDiffRevision.date ) );
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 4c-3. Modular Export Provider Architecture & Core Standard Manuscript
+        // ---------------------------------------------------------------------
+        function registerExportProvider( id, provider ) {
+            exportProviders[ id ] = provider;
+            if ( provider && provider.isDefault ) {
+                activeExportProviderId = id;
+            }
+        }
+
         function unescapeHtml( str ) {
             if ( ! str ) return '';
             var txt = document.createElement( 'textarea' );
@@ -913,405 +1427,68 @@
             return esc;
         }
 
-        function parseScriptToManuscript( rawText, options ) {
+        function parseStandardManuscript( rawText, options ) {
             options = options || {};
-            var includeTitlePage = options.includeTitlePage !== false;
-            var pageNumbers = options.pageNumbers !== false;
-            var boldSlugs = options.boldSlugs !== false;
-            var hideNotes = options.hideNotes !== false;
-            var defaultTitle = options.title || 'Untitled';
-
-            var cleanRaw = unescapeHtml( rawText || '' );
-            var lines = cleanRaw.split( /\r?\n/ );
-
-            var titlePageData = {
-                title: defaultTitle,
-                credit: 'Screenplay by',
-                author: '',
-                source: '',
-                rights: '',
-                date: new Date().toLocaleDateString( 'en-US', { month: 'numeric', day: 'numeric', year: '2-digit' } ),
-                contact: '',
-                forYourConsideration: false
-            };
-
-            var bodyLines = [];
-            var inHeaderBlock = true;
-            var i = 0;
-
-            // Check for 12YAS style or Fountain front-matter at top
-            var topTextSample = lines.slice( 0, 25 ).join( '\n' );
-            if ( /FOR YOUR CONSIDERATION/i.test( topTextSample ) || /BEST ADAPTED SCREENPLAY/i.test( topTextSample ) ) {
-                titlePageData.forYourConsideration = true;
-                while ( i < lines.length ) {
-                    var l = lines[i].trim();
-                    if ( /^CARD:\s*/i.test( l ) || /^FADE\s+IN:?/i.test( l ) || /^(\d+\s+)?(INT|EXT)[\.\s\-]/i.test( l ) ) {
-                        break;
-                    }
-                    if ( /^Screenplay by/i.test( l ) && i + 1 < lines.length ) {
-                        titlePageData.credit = l;
-                        titlePageData.author = lines[i + 1].trim();
-                        i += 2;
-                        continue;
-                    }
-                    if ( /ALL RIGHTS RESERVED/i.test( l ) ) {
-                        var rightsArr = [ l ];
-                        var rIdx = i + 1;
-                        while ( rIdx < lines.length && lines[rIdx].trim() !== '' && ! /^CARD:/i.test( lines[rIdx].trim() ) && ! /^FADE\s+IN/i.test( lines[rIdx].trim() ) ) {
-                            rightsArr.push( lines[rIdx].trim() );
-                            rIdx++;
-                        }
-                        titlePageData.rights = rightsArr.join( ' ' );
-                        i = rIdx;
-                        continue;
-                    }
-                    if ( /^BEST ADAPTED SCREENPLAY/i.test( l ) && ( ! titlePageData.title || titlePageData.title === 'Untitled' ) ) {
-                        titlePageData.title = defaultTitle && defaultTitle !== 'Untitled' ? defaultTitle : '12 Years A Slave';
-                    }
-                    i++;
-                }
-            } else {
-                // Extract metadata if formatted in Fountain/YAML style at top
-                while ( i < lines.length && inHeaderBlock ) {
-                    var l = lines[i].trim();
-                    if ( l === '' ) {
-                        inHeaderBlock = false;
-                        i++;
-                        break;
-                    }
-                    var metaMatch = l.match( /^(Title|Credit|Author|Authors|Source|Draft date|Date|Contact|Rights):\s*(.*)$/i );
-                    if ( metaMatch ) {
-                        var key = metaMatch[1].toLowerCase();
-                        var val = metaMatch[2].trim();
-                        if ( key === 'title' ) titlePageData.title = val;
-                        else if ( key === 'credit' ) titlePageData.credit = val;
-                        else if ( key === 'author' || key === 'authors' ) titlePageData.author = val;
-                        else if ( key === 'source' ) titlePageData.source = val;
-                        else if ( key === 'draft date' || key === 'date' ) titlePageData.date = val;
-                        else if ( key === 'contact' ) titlePageData.contact = val;
-                        else if ( key === 'rights' ) titlePageData.rights = val;
-                        i++;
-                    } else {
-                        inHeaderBlock = false;
-                        break;
-                    }
-                }
-            }
-
-            for ( ; i < lines.length; i++ ) {
-                bodyLines.push( lines[i] );
-            }
-
-            var slugRegex = /^(\.?)(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-]/i;
-            var transRegex = /^((CUT|FADE|DISSOLVE|SMASH CUT|MATCH CUT|JUMP CUT|WIPE)\s+TO:?|FADE\s+(OUT|IN)\.?|FADE\s+TO\s+BLACK\.?|>.*<|BLACK)$/i;
-
+            var clean = unescapeHtml( rawText || '' );
+            var lines = clean.split( /\r?\n/ );
+            var title = options.title || 'Untitled';
             var html = '';
 
-            // 1. Cover / Title Page (Authentic 12YAS Shooting Script Standard)
-            if ( includeTitlePage ) {
-                html += '<div class="sc-title-page">';
-                if ( titlePageData.forYourConsideration ) {
-                    html += '  <div class="sc-title-top">F O R &nbsp; Y O U R &nbsp; C O N S I D E R A T I O N</div>';
+            if ( options.includeTitlePage !== false ) {
+                html += '<div class="sc-title-page" style="min-height:8in;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">' +
+                    '<h1 style="font-size:22pt;text-transform:uppercase;margin-bottom:12pt;">' + escapeHtml( title ) + '</h1>' +
+                    '<div style="font-size:12pt;color:#555;margin-bottom:30pt;">Manuscript</div>' +
+                '</div><div class="sc-page-break"></div>';
+            }
+
+            for ( var i = 0; i < lines.length; i++ ) {
+                var l = lines[ i ].trim();
+                if ( ! l ) continue;
+                if ( l.startsWith( '#' ) ) {
+                    var headingText = l.replace( /^#+\s*/, '' );
+                    html += '<h2 style="font-size:14pt;margin-top:18pt;margin-bottom:8pt;">' + escapeHtml( headingText ) + '</h2>';
+                } else if ( l.startsWith( '> ' ) ) {
+                    html += '<blockquote style="margin:10pt 0 10pt 20pt;font-style:italic;color:#333;">' + escapeHtml( l.substring( 2 ) ) + '</blockquote>';
                 } else {
-                    html += '  <div class="sc-title-top" style="visibility:hidden;">&nbsp;</div>';
+                    html += '<p style="margin:0 0 10pt 0;line-height:1.4;text-indent:0.5in;">' + formatInlineMarkdown( l ) + '</p>';
                 }
-                html += '  <div class="sc-title-center">';
-                html += '    <div class="sc-title-text">' + escapeHtml( titlePageData.title || defaultTitle ) + '</div>';
-                if ( titlePageData.credit ) {
-                    html += '    <div class="sc-title-credit">' + escapeHtml( titlePageData.credit ) + '</div>';
-                }
-                if ( titlePageData.author ) {
-                    html += '    <div class="sc-title-author">' + escapeHtml( titlePageData.author ) + '</div>';
-                }
-                if ( titlePageData.source ) {
-                    html += '    <div class="sc-title-credit">' + escapeHtml( titlePageData.source ) + '</div>';
-                }
-                html += '  </div>';
-                html += '  <div class="sc-title-bottom">';
-                if ( titlePageData.rights ) {
-                    html += '    <div class="sc-title-rights">' + escapeHtml( titlePageData.rights ) + '</div>';
-                }
-                html += '    <div class="sc-title-meta-row">';
-                html += '      <div>' + ( titlePageData.date ? escapeHtml( titlePageData.date ) : '' ) + '</div>';
-                html += '      <div>' + ( titlePageData.contact ? escapeHtml( titlePageData.contact ) : '' ) + '</div>';
-                html += '    </div>';
-                html += '  </div>';
-                html += '</div>';
             }
-
-            var inDialogue = false;
-            var lineIdx = 0;
-            var currentSceneNum = '';
-            var currentDraftDate = '1/24/13';
-            var currentDraftTitle = 'FINAL SHOOTING SCRIPT';
-            var hasEmbeddedPages = false;
-
-            while ( lineIdx < bodyLines.length ) {
-                var cur = bodyLines[lineIdx].trim();
-
-                if ( cur === '' ) {
-                    inDialogue = false;
-                    lineIdx++;
-                    continue;
-                }
-
-                // Comment / Notes (// or [[ ]])
-                if ( cur.startsWith( '//' ) ) {
-                    if ( ! hideNotes ) {
-                        var noteText = cur.substring( 2 ).trim();
-                        html += '<div class="sc-note">' + escapeHtml( noteText ) + '</div>';
-                    }
-                    lineIdx++;
-                    continue;
-                } else if ( cur.startsWith( '[[' ) && cur.endsWith( ']]' ) ) {
-                    if ( ! hideNotes ) {
-                        var noteText = cur.substring( 2, cur.length - 2 ).trim();
-                        html += '<div class="sc-note">' + escapeHtml( noteText ) + '</div>';
-                    }
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 1: Embedded Page Header (e.g. "1/24/13  FINAL SHOOTING SCRIPT" followed by "2." or "118A.")
-                var headerMatch = cur.match( /^(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(.+)$/ );
-                if ( headerMatch ) {
-                    var dateVal = headerMatch[1];
-                    var titleVal = headerMatch[2].trim();
-                    var pageNumVal = '';
-                    if ( lineIdx + 1 < bodyLines.length && /^\d+[A-Z]?\.$/.test( bodyLines[lineIdx + 1].trim() ) ) {
-                        pageNumVal = bodyLines[lineIdx + 1].trim();
-                        lineIdx++;
-                    }
-                    hasEmbeddedPages = true;
-                    currentDraftDate = dateVal;
-                    currentDraftTitle = titleVal;
-
-                    html += '<div class="sc-page-break"></div>';
-                    if ( pageNumbers ) {
-                        html += '<div class="sc-page-header">' +
-                            '<span class="sc-header-date">' + escapeHtml( currentDraftDate ) + '</span>' +
-                            '<span class="sc-header-title">' + escapeHtml( currentDraftTitle ) + '</span>' +
-                            '<span class="sc-header-page">' + escapeHtml( pageNumVal ) + '</span>' +
-                        '</div>';
-                    }
-                    inDialogue = false;
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 2: Bottom-of-page continuation (CONTINUED)
-                if ( /^\(?CONTINUED\)?$/i.test( cur ) && ( cur.toUpperCase() === '(CONTINUED)' || cur.toUpperCase() === '(CONTINUED' ) ) {
-                    html += '<div class="sc-page-footer-continued">(CONTINUED)</div>';
-                    inDialogue = false;
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 3: Dialogue continuation marker (MORE)
-                if ( /^\(?MORE\)?$/i.test( cur ) ) {
-                    html += '<div class="sc-more">(MORE)</div>';
-                    inDialogue = false;
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 4: Scene Continuation Header (e.g. "CONTINUED:", "3  CONTINUED:  3", "CONTINUED: (2)")
-                var contMatch = cur.match( /^(?:(\d+[A-Z]?)\s+)?CONTINUED:?\s*(\(?\d*\)?)?(?:\s+(\d+[A-Z]?))?$/i );
-                if ( contMatch || ( cur.toUpperCase().indexOf( 'CONTINUED:' ) === 0 ) ) {
-                    inDialogue = false;
-                    var contSceneNum = ( contMatch && contMatch[1] ) ? contMatch[1] : '';
-                    var contSuffix = ( contMatch && contMatch[2] ) ? contMatch[2].trim() : '';
-                    if ( contSuffix && ! contSuffix.endsWith( ')' ) ) {
-                        contSuffix += ')';
-                    }
-                    var nextJ = lineIdx + 1;
-                    var trailingNums = [];
-                    while ( nextJ < bodyLines.length && /^\d+[A-Z]?$/.test( bodyLines[nextJ].trim() ) && trailingNums.length < 2 ) {
-                        trailingNums.push( bodyLines[nextJ].trim() );
-                        nextJ++;
-                    }
-                    if ( trailingNums.length > 0 ) {
-                        contSceneNum = contSceneNum || trailingNums[0];
-                        lineIdx = nextJ - 1;
-                    }
-                    contSceneNum = contSceneNum || currentSceneNum;
-                    var contText = 'CONTINUED:' + ( contSuffix ? ' ' + contSuffix : '' );
-
-                    html += '<div class="sc-slugline sc-continued-line">' +
-                        ( contSceneNum ? '<span class="sc-scene-num sc-num-left">' + escapeHtml( contSceneNum ) + '</span>' : '' ) +
-                        '<span class="sc-slugline-content">' + escapeHtml( contText ) + '</span>' +
-                        ( contSceneNum ? '<span class="sc-scene-num sc-num-right">' + escapeHtml( contSceneNum ) + '</span>' : '' ) +
-                    '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 5: Scene Heading / Slugline (# or INT./EXT. or with scene numbers)
-                var isSlugline = cur.startsWith( '# ' ) || cur.startsWith( '## ' ) || cur.startsWith( '### ' ) ||
-                    slugRegex.test( cur ) || cur.startsWith( '.INT' ) || cur.startsWith( '.EXT' );
-                var slugWithNumMatch = cur.match( /^(?:(\d+[A-Z]?)\s+)?(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-].*?(?:\s+(\d+[A-Z]?))?$/i );
-
-                if ( isSlugline || slugWithNumMatch ) {
-                    inDialogue = false;
-                    var leftNum = ( slugWithNumMatch && slugWithNumMatch[1] ) ? slugWithNumMatch[1] : '';
-                    var rightNum = ( slugWithNumMatch && slugWithNumMatch[3] ) ? slugWithNumMatch[3] : '';
-                    var cleanSlug = cur.replace( /^#+\s*/, '' ).replace( /^\./, '' );
-                    if ( leftNum && cleanSlug.indexOf( leftNum ) === 0 ) {
-                        cleanSlug = cleanSlug.substring( leftNum.length ).trim();
-                    }
-                    if ( rightNum && cleanSlug.endsWith( rightNum ) ) {
-                        cleanSlug = cleanSlug.substring( 0, cleanSlug.length - rightNum.length ).trim();
-                    }
-
-                    var nextJ = lineIdx + 1;
-                    var trailingNums = [];
-                    while ( nextJ < bodyLines.length && /^\d+[A-Z]?$/.test( bodyLines[nextJ].trim() ) && trailingNums.length < 2 ) {
-                        trailingNums.push( bodyLines[nextJ].trim() );
-                        nextJ++;
-                    }
-                    if ( trailingNums.length > 0 ) {
-                        leftNum = leftNum || trailingNums[0];
-                        rightNum = rightNum || ( trailingNums.length > 1 ? trailingNums[1] : trailingNums[0] );
-                        lineIdx = nextJ - 1;
-                    }
-
-                    var sceneNum = leftNum || rightNum;
-                    currentSceneNum = sceneNum || currentSceneNum;
-
-                    var slugClass = 'sc-slugline' + ( boldSlugs ? '' : ' normal-weight' );
-                    html += '<div class="' + slugClass + '">' +
-                        ( sceneNum ? '<span class="sc-scene-num sc-num-left">' + escapeHtml( sceneNum ) + '</span>' : '' ) +
-                        '<span class="sc-slugline-content">' + escapeHtml( cleanSlug.toUpperCase() ) + '</span>' +
-                        ( sceneNum ? '<span class="sc-scene-num sc-num-right">' + escapeHtml( sceneNum ) + '</span>' : '' ) +
-                    '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 6: Transitions (CUT TO:, FADE OUT., HARD CUT TO:)
-                if ( transRegex.test( cur ) ) {
-                    inDialogue = false;
-                    var transText = cur.replace( /^>\s*/, '' ).replace( /\s*<$/, '' ).toUpperCase();
-                    html += '<div class="sc-transition">' + escapeHtml( transText ) + '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 7: Screenplay Card Cues (e.g. "CARD: 1841", "-EARLY APRIL, 1841-", "-MARCH, 1853-", "- END -")
-                if ( /^CARD:\s*/i.test( cur ) || /^-.*?-\s*$/.test( cur ) ) {
-                    inDialogue = false;
-                    html += '<div class="sc-card-cue">' + escapeHtml( cur ) + '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 8: Parenthetical ((quietly), (beat), (to Parker))
-                var isParen = ( cur.startsWith( '(' ) && cur.endsWith( ')' ) ) || ( cur.startsWith( '(' ) && cur.indexOf( '\n' ) === -1 && cur.length < 60 );
-                if ( isParen ) {
-                    var parenText = cur;
-                    if ( ! parenText.endsWith( ')' ) ) parenText += ')';
-                    html += '<div class="sc-parenthetical">' + formatInlineMarkdown( parenText ) + '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 9: Dialogue line explicitly indicated with markdown quote (> dialogue)
-                if ( cur.startsWith( '> ' ) ) {
-                    html += '<div class="sc-dialogue">' + formatInlineMarkdown( cur.substring( 2 ).trim() ) + '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 10: Character Cue check
-                var normalizedCharLine = cur
-                    .replace( /\(CONT222D/gi, "(CONT'D)" )
-                    .replace( /CONT[’']D/gi, "CONT'D" )
-                    .replace( /\(CONT'D$/gi, "(CONT'D)" )
-                    .replace( /\(O\.S\.$/gi, "(O.S.)" )
-                    .replace( /\(V\.O\.$/gi, "(V.O.)" );
-
-                var cleanName = normalizedCharLine.replace( /\(.*?\)/g, '' ).trim();
-                var isAllUpper = cleanName.length > 0 && cleanName === cleanName.toUpperCase() && cleanName.length <= 40 && ! /[0-9]{3,}/.test( cleanName );
-                var hasNextLine = ( lineIdx + 1 < bodyLines.length && bodyLines[lineIdx + 1].trim() !== '' );
-
-                if ( ( isAllUpper && hasNextLine ) || cur.startsWith( '@' ) ) {
-                    inDialogue = true;
-                    var charName = normalizedCharLine.replace( /^@/, '' ).toUpperCase();
-                    html += '<div class="sc-character">' + escapeHtml( charName ) + '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Check 11: Dialogue following character cue or parenthetical
-                if ( inDialogue ) {
-                    html += '<div class="sc-dialogue">' + formatInlineMarkdown( cur ) + '</div>';
-                    lineIdx++;
-                    continue;
-                }
-
-                // Narrative Action block
-                html += '<div class="sc-action">' + formatInlineMarkdown( cur ) + '</div>';
-                lineIdx++;
-            }
-
-            // If the script did not have embedded running page headers, prepend running header for page 2 onward
-            if ( ! hasEmbeddedPages && pageNumbers ) {
-                var initialHeader = '<div class="sc-page-header">' +
-                    '<span class="sc-header-date">' + escapeHtml( titlePageData.date || '' ) + '</span>' +
-                    '<span class="sc-header-title">' + escapeHtml( titlePageData.title || defaultTitle ) + '</span>' +
-                    '<span class="sc-header-page">2.</span>' +
-                '</div>';
-                html = initialHeader + html;
-            }
-
             return html;
         }
 
-        function getPrintCss( style, pageSize ) {
+        function getStandardPrintCss( pageSize ) {
             var isA4 = ( pageSize === 'a4' );
             var sizeRule = isA4 ? '210mm 297mm' : 'letter portrait';
-            var marginRule = isA4 ? '25mm 25mm 25mm 38mm' : '1.0in 1.0in 1.0in 1.5in';
+            return '@page { size: ' + sizeRule + '; margin: 1.0in; }' +
+                '@media print { body { margin: 0; padding: 0; } .sc-page-break { page-break-before: always; break-before: page; height: 0; border: none; } }' +
+                'html, body { background: #fff; color: #111; font-family: "Courier Prime", "Courier New", monospace; font-size: 12pt; line-height: 1.4; }';
+        }
 
-            var fontFam = "'Courier Final Draft', 'Courier Prime', 'Courier New', Courier, monospace";
-            var fontSz = "12pt";
-            var lineH = "1.15";
+        // Register default Core Standard Manuscript
+        registerExportProvider( 'standard', {
+            id: 'standard',
+            name: 'Standard Manuscript',
+            tag: '12pt Submission Manuscript',
+            sub: 'Distraction-Free Standard',
+            isDefault: true,
+            parse: parseStandardManuscript,
+            getCss: getStandardPrintCss
+        } );
 
-            return '@page { size: ' + sizeRule + '; margin: ' + marginRule + '; }' +
-                '@media print { ' +
-                    'body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; } ' +
-                    '.sc-page-break { page-break-before: always; break-before: page; height: 0; margin: 0; border: none; background: transparent; } ' +
-                '}' +
-                'html, body { margin: 0; padding: 0; background: #ffffff; color: #111111; font-family: ' + fontFam + '; font-size: ' + fontSz + '; line-height: ' + lineH + '; }' +
-                '.sc-title-page { min-height: 8.5in; display: flex; flex-direction: column; justify-content: space-between; text-align: center; page-break-after: always; break-after: page; box-sizing: border-box; padding-top: 0.5in; padding-bottom: 0.5in; }' +
-                '.sc-title-top { font-size: 11pt; letter-spacing: 0.32em; text-transform: uppercase; color: #222222; margin-bottom: 1.8in; }' +
-                '.sc-title-center { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }' +
-                '.sc-title-text { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 18pt; }' +
-                '.sc-title-credit { font-size: 11pt; margin-bottom: 6pt; color: #444444; }' +
-                '.sc-title-author { font-size: 12pt; margin-bottom: 20pt; }' +
-                '.sc-title-bottom { display: flex; flex-direction: column; gap: 12pt; text-align: center; font-size: 9pt; line-height: 1.35; color: #555555; margin-top: 1.5in; }' +
-                '.sc-title-rights { max-width: 5.8in; margin: 0 auto; text-align: center; font-size: 8.5pt; line-height: 1.3; text-transform: uppercase; }' +
-                '.sc-title-meta-row { display: flex; justify-content: space-between; width: 100%; font-size: 10pt; text-align: left; }' +
-                '.sc-page-header { display: flex; justify-content: space-between; align-items: center; font-size: 11.5pt; color: #111111; margin-bottom: 18pt; padding-top: 0; font-family: inherit; }' +
-                '.sc-header-date { min-width: 1.2in; text-align: left; }' +
-                '.sc-header-title { flex: 1; text-align: center; letter-spacing: 0.08em; text-transform: uppercase; }' +
-                '.sc-header-page { min-width: 1.2in; text-align: right; }' +
-                '.sc-slugline { display: flex; justify-content: space-between; align-items: baseline; text-transform: uppercase; font-weight: bold; margin-top: 18pt; margin-bottom: 8pt; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-slugline.normal-weight { font-weight: normal; }' +
-                '.sc-slugline-content { flex: 1; text-align: left; }' +
-                '.sc-scene-num { font-weight: normal; font-size: 12pt; }' +
-                '.sc-num-left { width: 0.45in; margin-left: -0.45in; text-align: left; flex-shrink: 0; }' +
-                '.sc-num-right { width: 0.45in; margin-right: -0.45in; text-align: right; flex-shrink: 0; }' +
-                '.sc-continued-line { margin-top: 12pt; margin-bottom: 8pt; }' +
-                '.sc-action { margin-top: 0; margin-bottom: 9pt; line-height: 1.15; text-align: left; max-width: 6.0in; }' +
-                '.sc-character { text-transform: uppercase; margin-top: 12pt; margin-bottom: 0; margin-left: 2.0in; max-width: 3.5in; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-parenthetical { margin-top: 0; margin-bottom: 0; margin-left: 1.5in; max-width: 2.5in; font-style: normal; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-dialogue { margin-top: 0; margin-bottom: 9pt; margin-left: 1.0in; max-width: 3.5in; line-height: 1.15; }' +
-                '.sc-more { margin-top: 0; margin-bottom: 9pt; margin-left: 2.0in; max-width: 3.5in; text-transform: uppercase; }' +
-                '.sc-page-footer-continued { text-align: right; width: 6.0in; margin-top: 16pt; margin-bottom: 16pt; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-transition { text-transform: uppercase; margin-top: 12pt; margin-bottom: 12pt; text-align: right; width: 6.0in; page-break-after: avoid; break-after: avoid; }' +
-                '.sc-card-cue { text-transform: uppercase; margin-top: 12pt; margin-bottom: 8pt; text-align: left; max-width: 6.0in; }' +
-                '.sc-note { color: #666; font-style: italic; font-size: 10pt; margin: 6pt 0; padding-left: 8pt; border-left: 2px solid #ccc; }' +
-                '.sc-code { font-family: inherit; font-size: 11pt; }';
+        function parseScriptToManuscript( rawText, options ) {
+            var provider = exportProviders[ activeExportProviderId ];
+            if ( provider && typeof provider.parse === 'function' ) {
+                return provider.parse( rawText, options );
+            }
+            return parseStandardManuscript( rawText, options );
+        }
+
+        function getPrintCss( style, pageSize ) {
+            var provider = exportProviders[ activeExportProviderId ];
+            if ( provider && typeof provider.getCss === 'function' ) {
+                return provider.getCss( pageSize );
+            }
+            return getStandardPrintCss( pageSize );
         }
 
         var previewRafId = null;
@@ -1325,7 +1502,7 @@
             var hideNotes = exportOptHideNotes ? exportOptHideNotes.checked : true;
 
             var options = {
-                style: 'filmscript',
+                style: activeExportProviderId,
                 pageSize: pageSize,
                 includeTitlePage: includeTitlePage,
                 pageNumbers: pageNumbers,
@@ -1334,12 +1511,20 @@
                 title: currentExportTitle || 'Untitled'
             };
 
+            var provider = exportProviders[ activeExportProviderId ];
+            if ( provider && typeof provider.getExtraOptions === 'function' ) {
+                var extraOpts = provider.getExtraOptions();
+                for ( var k in extraOpts ) {
+                    options[ k ] = extraOpts[ k ];
+                }
+            }
+
             // Smooth batch rendering via requestAnimationFrame to eliminate flicker and stutter
             if ( previewRafId ) {
                 window.cancelAnimationFrame( previewRafId );
             }
             previewRafId = window.requestAnimationFrame( function() {
-                previewSheet.className = 'sw-paper-sheet style-filmscript pagesize-' + pageSize;
+                previewSheet.className = 'sw-paper-sheet style-' + activeExportProviderId + ' pagesize-' + pageSize;
                 var parsedHtml = parseScriptToManuscript( currentExportContent, options );
                 previewSheet.innerHTML = parsedHtml;
 
@@ -1361,7 +1546,7 @@
             var hideNotes = exportOptHideNotes ? exportOptHideNotes.checked : true;
 
             var options = {
-                style: 'filmscript',
+                style: activeExportProviderId,
                 pageSize: pageSize,
                 includeTitlePage: includeTitlePage,
                 pageNumbers: pageNumbers,
@@ -1370,8 +1555,16 @@
                 title: currentExportTitle || 'Untitled'
             };
 
+            var provider = exportProviders[ activeExportProviderId ];
+            if ( provider && typeof provider.getExtraOptions === 'function' ) {
+                var extraOpts = provider.getExtraOptions();
+                for ( var k in extraOpts ) {
+                    options[ k ] = extraOpts[ k ];
+                }
+            }
+
             var parsedHtml = parseScriptToManuscript( currentExportContent, options );
-            var css = getPrintCss( 'filmscript', pageSize );
+            var css = getPrintCss( activeExportProviderId, pageSize );
 
             showToast( 'Opening PDF print dialog...' );
 
@@ -1403,7 +1596,7 @@
         function downloadManuscriptHtml() {
             var pageSize = exportPageSizeSelect ? exportPageSizeSelect.value : 'letter';
             var options = {
-                style: 'filmscript',
+                style: activeExportProviderId,
                 pageSize: pageSize,
                 includeTitlePage: exportOptTitlePage ? exportOptTitlePage.checked : true,
                 pageNumbers: exportOptPageNumbers ? exportOptPageNumbers.checked : true,
@@ -1411,8 +1604,17 @@
                 hideNotes: exportOptHideNotes ? exportOptHideNotes.checked : true,
                 title: currentExportTitle || 'Untitled'
             };
+
+            var provider = exportProviders[ activeExportProviderId ];
+            if ( provider && typeof provider.getExtraOptions === 'function' ) {
+                var extraOpts = provider.getExtraOptions();
+                for ( var k in extraOpts ) {
+                    options[ k ] = extraOpts[ k ];
+                }
+            }
+
             var parsedHtml = parseScriptToManuscript( currentExportContent, options );
-            var css = getPrintCss( 'filmscript', pageSize );
+            var css = getPrintCss( activeExportProviderId, pageSize );
             var fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeHtml( currentExportTitle ) + ' - Manuscript</title><style>' + css + '</style></head><body style="padding: 20px;">' + parsedHtml + '</body></html>';
 
             var filename = ( currentExportTitle || 'writing' ).replace(/[^a-z0-9_\-]/gi, '_').toLowerCase() + '-manuscript.html';
@@ -1434,6 +1636,19 @@
 
             if ( exportTitleBadge ) {
                 exportTitleBadge.textContent = currentExportTitle;
+            }
+
+            var provider = exportProviders[ activeExportProviderId ];
+            if ( provider && typeof provider.onExportOpen === 'function' ) {
+                provider.onExportOpen( {
+                    title: currentExportTitle,
+                    content: currentExportContent,
+                    modal: exportModal,
+                    updatePreview: updateManuscriptPreview
+                } );
+            }
+            if ( window.Andika && typeof window.Andika.emit === 'function' ) {
+                window.Andika.emit( 'export:open', { title: currentExportTitle, content: currentExportContent, modal: exportModal, updatePreview: updateManuscriptPreview } );
             }
 
             updateManuscriptPreview();
@@ -2993,6 +3208,106 @@
             } );
         }
 
+        // 8c-1. Review Notes, Track Changes & Revisions Event Bindings
+        if ( notesToggleBtn ) {
+            notesToggleBtn.addEventListener( 'click', function( e ) {
+                e.stopPropagation();
+                if ( reviewDrawer && reviewDrawer.classList.contains( 'active' ) ) {
+                    closeReviewDrawer();
+                } else {
+                    openReviewDrawer();
+                }
+            } );
+        }
+
+        if ( trackBtn ) {
+            trackBtn.addEventListener( 'click', function( e ) {
+                e.stopPropagation();
+                toggleTrackChanges();
+            } );
+        }
+
+        if ( revisionsBtn ) {
+            revisionsBtn.addEventListener( 'click', function( e ) {
+                e.stopPropagation();
+                if ( revisionsDrawer && revisionsDrawer.classList.contains( 'active' ) ) {
+                    closeRevisionsDrawer();
+                } else {
+                    openRevisionsDrawer();
+                }
+            } );
+        }
+
+        if ( reviewPopoverSaveBtn ) {
+            reviewPopoverSaveBtn.addEventListener( 'click', submitReviewNote );
+        }
+        if ( reviewPopoverCancelBtn ) {
+            reviewPopoverCancelBtn.addEventListener( 'click', closeReviewPopover );
+        }
+        if ( reviewPopoverCloseBtn ) {
+            reviewPopoverCloseBtn.addEventListener( 'click', closeReviewPopover );
+        }
+        if ( reviewPopoverText ) {
+            reviewPopoverText.addEventListener( 'keydown', function( e ) {
+                if ( e.key === 'Enter' && ( e.ctrlKey || e.metaKey ) ) {
+                    e.preventDefault();
+                    submitReviewNote();
+                } else if ( e.key === 'Escape' ) {
+                    e.preventDefault();
+                    closeReviewPopover();
+                }
+            } );
+        }
+
+        if ( reviewDrawerCloseBtn ) {
+            reviewDrawerCloseBtn.addEventListener( 'click', closeReviewDrawer );
+        }
+        if ( revisionsDrawerCloseBtn ) {
+            revisionsDrawerCloseBtn.addEventListener( 'click', closeRevisionsDrawer );
+        }
+        if ( revDiffCloseBtn ) {
+            revDiffCloseBtn.addEventListener( 'click', function() {
+                if ( revDiffWrap ) revDiffWrap.style.display = 'none';
+                if ( revisionsList ) revisionsList.style.display = 'flex';
+            } );
+        }
+        if ( revRestoreBtn ) {
+            revRestoreBtn.addEventListener( 'click', restoreActiveRevision );
+        }
+
+        // Close popover when clicking outside
+        document.addEventListener( 'mousedown', function( e ) {
+            if ( reviewPopover && reviewPopover.style.display !== 'none' ) {
+                if ( ! reviewPopover.contains( e.target ) && ! ( ctxMenu && ctxMenu.contains( e.target ) ) ) {
+                    closeReviewPopover();
+                }
+            }
+        } );
+
+        if ( textarea ) {
+            textarea.addEventListener( 'scroll', renderReviewGutter );
+        }
+        window.addEventListener( 'resize', renderReviewGutter );
+
+        window.Andika.on( 'load', function( data ) {
+            if ( data && data.id ) {
+                loadComments( data.id );
+                if ( textarea ) {
+                    baselineLines = textarea.value.split( '\n' );
+                    changedLineIndices.clear();
+                    renderReviewGutter();
+                }
+            }
+        } );
+
+        var initScriptId = getActiveScriptId();
+        if ( initScriptId ) {
+            loadComments( initScriptId );
+        }
+        if ( textarea ) {
+            baselineLines = textarea.value.split( '\n' );
+        }
+
         // 8c-2. Dashboard Gear Menu Handlers (Houses User Profile, Settings, WP Admin, Logout)
         function openGearMenu() {
             if ( ! gearMenu ) return;
@@ -3626,6 +3941,21 @@
         // Global Escape Key Listener for Modals & Dropdown Menus
         document.addEventListener( 'keydown', function( e ) {
             if ( e.key === 'Escape' ) {
+                if ( reviewPopover && reviewPopover.style.display !== 'none' ) {
+                    e.preventDefault();
+                    closeReviewPopover();
+                    return;
+                }
+                if ( reviewDrawer && reviewDrawer.classList.contains( 'active' ) ) {
+                    e.preventDefault();
+                    closeReviewDrawer();
+                    return;
+                }
+                if ( revisionsDrawer && revisionsDrawer.classList.contains( 'active' ) ) {
+                    e.preventDefault();
+                    closeRevisionsDrawer();
+                    return;
+                }
                 if ( gearMenu && gearMenu.classList.contains( 'open' ) ) {
                     e.preventDefault();
                     closeGearMenu();
@@ -3640,6 +3970,11 @@
                     e.preventDefault();
                     closeExportModal();
                     return;
+                }
+            } else if ( e.altKey && ( e.key === 'c' || e.key === 'C' ) ) {
+                if ( currentView === 'editor' && textarea ) {
+                    e.preventDefault();
+                    triggerReviewNoteFromSelection();
                 }
             }
         } );
@@ -3880,6 +4215,10 @@
             hideContextMenu();
             triggerAutoSave();
             updateStats();
+            if ( isTrackChangesActive ) {
+                updateTrackChangesDiff();
+            }
+            renderReviewGutter();
             window.Andika.emit( 'change', {
                 text: textarea.value,
                 scriptId: ( textarea && textarea.dataset.scriptId ) || ( window.scriptWriterData ? window.scriptWriterData.scriptId : 0 ),
@@ -3899,6 +4238,10 @@
                     textarea.value = val;
                     triggerAutoSave();
                     updateStats();
+                    if ( isTrackChangesActive ) {
+                        updateTrackChangesDiff();
+                    }
+                    renderReviewGutter();
                     window.Andika.emit( 'change', {
                         text: val,
                         scriptId: andikaApi.getScriptId(),
@@ -3916,6 +4259,10 @@
                 textarea.focus();
                 triggerAutoSave();
                 updateStats();
+                if ( isTrackChangesActive ) {
+                    updateTrackChangesDiff();
+                }
+                renderReviewGutter();
                 window.Andika.emit( 'change', {
                     text: textarea.value,
                     scriptId: andikaApi.getScriptId(),
@@ -4064,6 +4411,40 @@
                 drawer._drawerApi = drawerApi;
                 return drawerApi;
             },
+            registerExportProvider: registerExportProvider,
+            setActiveExportProvider: function( id ) {
+                if ( exportProviders[ id ] ) {
+                    activeExportProviderId = id;
+                    var titleEl = document.getElementById( 'sw-export-format-title' );
+                    var tagEl = document.getElementById( 'sw-export-format-tag' );
+                    var subEl = document.getElementById( 'sw-export-format-sub' );
+                    var helpEl = document.getElementById( 'sw-export-help' );
+                    var prov = exportProviders[ id ];
+                    if ( titleEl && prov.name ) titleEl.textContent = prov.name;
+                    if ( tagEl && prov.tag ) tagEl.textContent = prov.tag;
+                    if ( subEl && prov.sub ) subEl.textContent = prov.sub;
+                    if ( helpEl && prov.help ) helpEl.textContent = prov.help;
+                    updateManuscriptPreview();
+                }
+            },
+            getActiveExportProvider: function() {
+                return exportProviders[ activeExportProviderId ];
+            },
+            getExportProviders: function() {
+                return exportProviders;
+            },
+            openExportModal: openExportModal,
+            closeExportModal: closeExportModal,
+            updateExportPreview: updateManuscriptPreview,
+            openReviewDrawer: openReviewDrawer,
+            closeReviewDrawer: closeReviewDrawer,
+            openRevisionsDrawer: openRevisionsDrawer,
+            closeRevisionsDrawer: closeRevisionsDrawer,
+            loadComments: loadComments,
+            getComments: function() {
+                return currentComments;
+            },
+            toggleTrackChanges: toggleTrackChanges,
             on: window.Andika.on,
             off: window.Andika.off,
             emit: window.Andika.emit

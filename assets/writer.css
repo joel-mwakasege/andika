@@ -3411,3 +3411,652 @@ body.wp-admin,
     border-radius: 6px;
     border: 1px dashed #282f3d;
 }
+
+/* ==========================================================================
+   Review Notes (Icon-Free Minimal Line Pills) & Track Changes Gutter
+   ========================================================================== */
+.sw-review-gutter {
+    position: absolute;
+    top: 0;
+    right: 18px;
+    bottom: 0;
+    width: 70px;
+    pointer-events: none;
+    z-index: 50;
+    overflow: hidden;
+}
+
+.sw-line-pill {
+    position: absolute;
+    right: 0;
+    pointer-events: auto;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    letter-spacing: 0.04em;
+    user-select: none;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.sw-line-pill:hover {
+    background: #334155;
+    border-color: #64748b;
+    color: #ffffff;
+    transform: translateX(-2px);
+}
+
+.sw-line-pill.resolved {
+    opacity: 0.35;
+    background: #0f172a;
+    border-color: #1e293b;
+    color: #64748b;
+}
+
+.sw-line-pill.resolved:hover {
+    opacity: 0.8;
+}
+
+.sw-rev-mark {
+    position: absolute;
+    right: 48px;
+    pointer-events: auto;
+    cursor: default;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 16px;
+    font-weight: bold;
+    color: #38bdf8;
+    line-height: 1;
+    user-select: none;
+}
+
+/* Floating Review Note Popover */
+.sw-review-popover {
+    position: absolute;
+    width: 320px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    padding: 12px 14px;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.sw-popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.sw-popover-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sw-popover-close-btn {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.sw-popover-close-btn:hover {
+    color: #f8fafc;
+}
+
+.sw-popover-quote {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    color: #64748b;
+    padding: 4px 8px;
+    background: #1e293b;
+    border-left: 2px solid #38bdf8;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    max-height: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sw-popover-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #f8fafc;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    resize: vertical;
+    outline: none;
+    margin-bottom: 10px;
+    font-family: inherit;
+}
+
+.sw-popover-input:focus {
+    border-color: #38bdf8;
+}
+
+.sw-popover-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* Slide-out Side Drawers (Review Notes & Revision History) */
+.sw-side-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 380px;
+    height: 100vh;
+    background: #0a0e17;
+    border-left: 1px solid #1e293b;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sw-side-drawer.active {
+    transform: translateX(0);
+}
+
+.sw-drawer-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0f172a;
+}
+
+.sw-drawer-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sw-drawer-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.sw-drawer-badge {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    background: #1e293b;
+    color: #94a3b8;
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+}
+
+.sw-drawer-close-btn {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+}
+
+.sw-drawer-close-btn:hover {
+    color: #f8fafc;
+}
+
+.sw-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sw-drawer-empty {
+    padding: 30px 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Note Card in Drawer */
+.sw-note-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s ease;
+}
+
+.sw-note-card:hover {
+    border-color: #334155;
+}
+
+.sw-note-card.resolved {
+    opacity: 0.5;
+    background: #090d15;
+}
+
+.sw-note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.sw-note-author {
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.sw-note-line {
+    font-family: 'JetBrains Mono', monospace;
+    color: #38bdf8;
+}
+
+.sw-note-quote {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: #94a3b8;
+    background: #161e2e;
+    padding: 4px 8px;
+    border-left: 2px solid #38bdf8;
+    border-radius: 3px;
+}
+
+.sw-note-text {
+    font-size: 13px;
+    color: #f1f5f9;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+.sw-note-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.sw-note-btn {
+    background: transparent;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sw-note-btn:hover {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+.sw-note-btn-danger:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+/* Revision History Item */
+.sw-rev-intro {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.sw-rev-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sw-rev-item {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sw-rev-item:hover {
+    border-color: #38bdf8;
+    background: #161e2e;
+}
+
+.sw-rev-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.sw-rev-date {
+    font-weight: 500;
+    color: #f8fafc;
+}
+
+.sw-rev-author {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.sw-rev-diff-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sw-rev-diff-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 8px;
+}
+
+.sw-rev-diff-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #38bdf8;
+}
+
+.sw-rev-diff-content {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    line-height: 1.5;
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 480px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.sw-diff-ins {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    text-decoration: underline;
+}
+
+.sw-diff-del {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    text-decoration: line-through;
+}
+
+/* Toolbar Buttons for Track & Notes */
+.sw-btn-track.active {
+    background: #0284c7 !important;
+    border-color: #0369a1 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.sw-btn-notes-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sw-notes-pill-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    background: #1e293b;
+    color: #38bdf8;
+    padding: 1px 6px;
+    border-radius: 8px;
+}
+
+/* Context Menu Note Button */
+.sw-ctx-btn-note {
+    font-family: system-ui, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    color: #38bdf8 !important;
+}
+
+/* ==========================================================================
+   Scenes & Sides Export UI (Movie Production Extension)
+   ========================================================================== */
+.sw-scope-btn-group {
+    display: flex;
+    gap: 6px;
+    background: #161820;
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid #232733;
+}
+
+.sw-scope-btn {
+    flex: 1;
+    height: 32px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.sw-scope-btn:hover {
+    color: #f8fafc;
+}
+
+.sw-scope-btn.active {
+    background: #252a36;
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.sw-sides-options-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 6px;
+    border-top: 1px dashed #232733;
+}
+
+.sw-sides-range-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.sw-sides-count-badge {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #38bdf8;
+}
+
+.sw-sides-checklist-wrap {
+    margin-top: 8px;
+    background: #161820;
+    border: 1px solid #232733;
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sw-sides-checklist-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #64748b;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1e222d;
+}
+
+.sw-link-btn {
+    background: transparent;
+    border: none;
+    color: #38bdf8;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.sw-link-btn:hover {
+    text-decoration: underline;
+}
+
+.sw-sides-scene-checklist {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sw-sides-scene-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: #cbd5e1;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sw-sides-scene-item:hover {
+    background: #1e222d;
+}
+
+.sw-sides-scene-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: #f8fafc;
+    min-width: 24px;
+}
+
+.sw-sides-scene-slug {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+}
+
+.sw-sides-scene-length {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: #64748b;
+}
+
+/* Production Sides Slip in Manuscript Preview & Print */
+.sc-sides-slip {
+    border: 2px solid #111111;
+    padding: 24px;
+    margin-bottom: 36px;
+    page-break-after: always;
+    break-after: page;
+    box-sizing: border-box;
+    min-height: 4.5in;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: inherit;
+}
+
+.sc-sides-slip-header {
+    text-align: center;
+    border-bottom: 1px solid #333333;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+}
+
+.sc-sides-slip-title {
+    font-size: 16pt;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4pt;
+}
+
+.sc-sides-slip-sub {
+    font-size: 11pt;
+    color: #444444;
+}
+
+.sc-sides-slip-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 11pt;
+    margin-bottom: 16px;
+}
+
+.sc-sides-slip-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed #cccccc;
+    padding-bottom: 4px;
+}
+
+.sc-sides-slip-label {
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.sc-sides-slip-scenes {
+    border-top: 1px solid #333333;
+    padding-top: 12pt;
+    font-size: 10.5pt;
+    line-height: 1.4;
+}
+
+.sc-highlight-dialogue {
+    background: #fef08a !important;
+    color: #000000 !important;
+    border-left: 3px solid #ca8a04;
+    padding-left: 6px;
+    margin-left: calc(1.0in - 9px) !important;
+}
+
