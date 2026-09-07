@@ -2164,7 +2164,7 @@
                 titlePageData.forYourConsideration = true;
                 while ( i < lines.length ) {
                     var l = lines[i].trim();
-                    if ( /^CARD:\s*/i.test( l ) || /^FADE\s+IN:?/i.test( l ) || /^(\d+\s+)?(INT|EXT)[\.\s\-]/i.test( l ) ) {
+                    if ( /^CARD:\s*/i.test( l ) || /^FADE\s+IN:?/i.test( l ) || /^(?:\d+[A-Z]?\s*)?(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-]/i.test( l ) ) {
                         break;
                     }
                     if ( /^Screenplay by/i.test( l ) && i + 1 < lines.length ) {
@@ -2220,8 +2220,8 @@
                 bodyLines.push( lines[i] );
             }
 
-            var slugRegex = /^(\.?)(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-]/i;
-            var transRegex = /^((CUT|FADE|DISSOLVE|SMASH CUT|MATCH CUT|JUMP CUT|WIPE)\s+TO:?|FADE\s+(OUT|IN)\.?|FADE\s+TO\s+BLACK\.?|>.*<|BLACK)$/i;
+            var slugRegex = /^(?:\d+[A-Z]?\s*)?(\.?)(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-]/i;
+            var transRegex = /^((CUT|FADE|DISSOLVE|SMASH CUT|MATCH CUT|JUMP CUT|WIPE)\s+TO:?|FADE\s+(OUT|IN)[:\.]*|FADE\s+TO\s+BLACK\.?|>.*<|BLACK)$/i;
 
             var html = '';
 
@@ -2291,7 +2291,7 @@
                 html += '      <div>' + ( titlePageData.contact ? this.escapeHtml( titlePageData.contact ) : '' ) + '</div>';
                 html += '    </div>';
                 html += '  </div>';
-                html += '</div>';
+                html += '</div><div class="sc-page-break"></div>';
             }
 
             var inDialogue = false;
@@ -2303,6 +2303,8 @@
             var currentDraftDate = '1/24/13';
             var currentDraftTitle = 'FINAL SHOOTING SCRIPT';
             var hasEmbeddedPages = false;
+            var linesOnCurrentPage = 0;
+            var autoPageNum = 1;
 
             while ( lineIdx < bodyLines.length ) {
                 var cur = bodyLines[lineIdx].trim();
@@ -2398,7 +2400,23 @@
                 // Scene Heading / Slugline (# or INT./EXT. or with scene numbers)
                 var isSlugline = cur.startsWith( '# ' ) || cur.startsWith( '## ' ) || cur.startsWith( '### ' ) ||
                     slugRegex.test( cur ) || cur.startsWith( '.INT' ) || cur.startsWith( '.EXT' );
-                var slugWithNumMatch = cur.match( /^(?:(\d+[A-Z]?)\s+)?(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-].*?(?:\s+(\d+[A-Z]?))?$/i );
+                var slugWithNumMatch = cur.match( /^(?:(\d+[A-Z]?)\s*)?(INT|EXT|INT\/EXT|EXT\/INT|I\/E|EST)[\.\s\-].*?(?:\s+(\d+[A-Z]?))?$/i );
+
+                // Automatic line pagination when script has no embedded page headers
+                if ( ! hasEmbeddedPages && linesOnCurrentPage >= 52 && ( isSlugline || slugWithNumMatch || /^CARD:\s*/i.test( cur ) || transRegex.test( cur ) ) ) {
+                    if ( isCurrentSceneSelected ) {
+                        html += '<div class="sc-page-break"></div>';
+                        autoPageNum++;
+                        if ( pageNumbers && scope !== 'sides' ) {
+                            html += '<div class="sc-page-header">' +
+                                '<span class="sc-header-date">' + this.escapeHtml( titlePageData.date || '' ) + '</span>' +
+                                '<span class="sc-header-title">' + this.escapeHtml( titlePageData.title || defaultTitle ) + '</span>' +
+                                '<span class="sc-header-page">' + autoPageNum + '.</span>' +
+                            '</div>';
+                        }
+                    }
+                    linesOnCurrentPage = 0;
+                }
 
                 if ( isSlugline || slugWithNumMatch ) {
                     inDialogue = false;
@@ -2447,6 +2465,7 @@
                             '<span class="sc-slugline-content">' + this.escapeHtml( cleanSlug.toUpperCase() ) + '</span>' +
                             ( sceneNum ? '<span class="sc-scene-num sc-num-right">' + this.escapeHtml( sceneNum ) + '</span>' : '' ) +
                         '</div>';
+                        linesOnCurrentPage += 2;
                     }
                     lineIdx++;
                     continue;
@@ -2463,6 +2482,7 @@
                     if ( ! hideNotes ) {
                         var noteText = cur.substring( 2 ).trim();
                         html += '<div class="sc-note">' + this.escapeHtml( noteText ) + '</div>';
+                        linesOnCurrentPage += 1;
                     }
                     lineIdx++;
                     continue;
@@ -2470,6 +2490,7 @@
                     if ( ! hideNotes ) {
                         var noteText = cur.substring( 2, cur.length - 2 ).trim();
                         html += '<div class="sc-note">' + this.escapeHtml( noteText ) + '</div>';
+                        linesOnCurrentPage += 1;
                     }
                     lineIdx++;
                     continue;
@@ -2480,6 +2501,7 @@
                     inDialogue = false;
                     var transText = cur.replace( /^>\s*/, '' ).replace( /\s*<$/, '' ).toUpperCase();
                     html += '<div class="sc-transition">' + this.escapeHtml( transText ) + '</div>';
+                    linesOnCurrentPage += 2;
                     lineIdx++;
                     continue;
                 }
@@ -2488,6 +2510,7 @@
                 if ( /^CARD:\s*/i.test( cur ) || /^-.*?-\s*$/.test( cur ) ) {
                     inDialogue = false;
                     html += '<div class="sc-card-cue">' + this.escapeHtml( cur ) + '</div>';
+                    linesOnCurrentPage += 2;
                     lineIdx++;
                     continue;
                 }
@@ -2498,6 +2521,7 @@
                     var parenText = cur;
                     if ( ! parenText.endsWith( ')' ) ) parenText += ')';
                     html += '<div class="sc-parenthetical">' + this.formatInlineMarkdown( parenText ) + '</div>';
+                    linesOnCurrentPage += 1;
                     lineIdx++;
                     continue;
                 }
@@ -2506,6 +2530,7 @@
                 if ( cur.startsWith( '> ' ) ) {
                     var isTarget = highlightCharacter && targetCharacter && ( currentCharacterName === targetCharacter );
                     html += '<div class="sc-dialogue' + ( isTarget ? ' sc-highlight-dialogue' : '' ) + '">' + this.formatInlineMarkdown( cur.substring( 2 ).trim() ) + '</div>';
+                    linesOnCurrentPage += Math.max( 1, Math.ceil( cur.length / 35 ) );
                     lineIdx++;
                     continue;
                 }
@@ -2527,6 +2552,7 @@
                     var charName = normalizedCharLine.replace( /^@/, '' ).toUpperCase();
                     currentCharacterName = cleanName.toUpperCase();
                     html += '<div class="sc-character">' + this.escapeHtml( charName ) + '</div>';
+                    linesOnCurrentPage += 2;
                     lineIdx++;
                     continue;
                 }
@@ -2535,23 +2561,15 @@
                 if ( inDialogue ) {
                     var isTarget = highlightCharacter && targetCharacter && ( currentCharacterName === targetCharacter );
                     html += '<div class="sc-dialogue' + ( isTarget ? ' sc-highlight-dialogue' : '' ) + '">' + this.formatInlineMarkdown( cur ) + '</div>';
+                    linesOnCurrentPage += Math.max( 1, Math.ceil( cur.length / 35 ) );
                     lineIdx++;
                     continue;
                 }
 
                 // Narrative Action block
                 html += '<div class="sc-action">' + this.formatInlineMarkdown( cur ) + '</div>';
+                linesOnCurrentPage += Math.max( 1, Math.ceil( cur.length / 65 ) );
                 lineIdx++;
-            }
-
-            // Running header for page 2 onward
-            if ( ! hasEmbeddedPages && pageNumbers && scope !== 'sides' ) {
-                var initialHeader = '<div class="sc-page-header">' +
-                    '<span class="sc-header-date">' + this.escapeHtml( titlePageData.date || '' ) + '</span>' +
-                    '<span class="sc-header-title">' + this.escapeHtml( titlePageData.title || defaultTitle ) + '</span>' +
-                    '<span class="sc-header-page">2.</span>' +
-                '</div>';
-                html = initialHeader + html;
             }
 
             return html;

@@ -112,6 +112,7 @@
         var exportFountainBtn = document.getElementById( 'sw-export-fountain-btn' );
         var exportTxtBtn = document.getElementById( 'sw-export-txt-btn' );
         var previewSheet = document.getElementById( 'sw-paper-sheet' );
+        var previewViewport = document.getElementById( 'sw-preview-viewport' );
         var previewPageCount = document.getElementById( 'sw-preview-page-count' );
 
         // Dashboard Elements
@@ -1493,7 +1494,8 @@
 
         var previewRafId = null;
         function updateManuscriptPreview() {
-            if ( ! previewSheet ) return;
+            var viewport = previewViewport || document.getElementById( 'sw-preview-viewport' );
+            if ( ! viewport ) return;
 
             var pageSize = exportPageSizeSelect ? exportPageSizeSelect.value : 'letter';
             var includeTitlePage = exportOptTitlePage ? exportOptTitlePage.checked : true;
@@ -1524,16 +1526,25 @@
                 window.cancelAnimationFrame( previewRafId );
             }
             previewRafId = window.requestAnimationFrame( function() {
-                previewSheet.className = 'sw-paper-sheet style-' + activeExportProviderId + ' pagesize-' + pageSize;
                 var parsedHtml = parseScriptToManuscript( currentExportContent, options );
-                previewSheet.innerHTML = parsedHtml;
+                var pageChunks = parsedHtml.split( '<div class="sc-page-break"></div>' ).filter( function( chunk ) {
+                    return chunk.trim().length > 0;
+                } );
 
-                // Count pages: count .sc-page-break if present, else estimate
-                var breakCount = ( parsedHtml.match( /class="sc-page-break"/g ) || [] ).length;
-                var estPages = breakCount > 0 ? ( breakCount + 1 ) : Math.max( 1, Math.round( ( currentExportContent.trim() ? currentExportContent.trim().split( /\s+/ ).length : 0 ) / 210 ) );
-                if ( includeTitlePage ) estPages += 1;
+                if ( pageChunks.length === 0 ) {
+                    pageChunks = [ parsedHtml ];
+                }
+
+                var sheetsHtml = '';
+                for ( var p = 0; p < pageChunks.length; p++ ) {
+                    sheetsHtml += '<div class="sw-paper-sheet style-' + activeExportProviderId + ' pagesize-' + pageSize + '">' +
+                        pageChunks[ p ] +
+                    '</div>';
+                }
+                viewport.innerHTML = sheetsHtml;
+
                 if ( previewPageCount ) {
-                    previewPageCount.textContent = estPages + ( estPages === 1 ? ' page' : ' pages' );
+                    previewPageCount.textContent = pageChunks.length + ( pageChunks.length === 1 ? ' page' : ' pages' );
                 }
             } );
         }
@@ -1649,6 +1660,9 @@
             }
             if ( window.Andika && typeof window.Andika.emit === 'function' ) {
                 window.Andika.emit( 'export:open', { title: currentExportTitle, content: currentExportContent, modal: exportModal, updatePreview: updateManuscriptPreview } );
+            }
+            if ( previewViewport ) {
+                previewViewport.scrollTop = 0;
             }
 
             updateManuscriptPreview();

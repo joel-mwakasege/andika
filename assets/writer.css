@@ -1628,6 +1628,7 @@ body.wp-admin,
     width: 8.5in;
     max-width: 100%;
     min-height: 11in;
+    flex-shrink: 0;
     background: #ffffff;
     color: #111111;
     box-sizing: border-box;
@@ -1665,6 +1666,7 @@ body.wp-admin,
 /* Authentic 12YAS Filmscript Title Page */
 .sc-title-page {
     min-height: 8.5in;
+    height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -1672,10 +1674,10 @@ body.wp-admin,
     page-break-after: always;
     break-after: page;
     box-sizing: border-box;
-    padding-top: 0.4in;
-    padding-bottom: 0.4in;
-    margin-bottom: 40px;
-    border-bottom: 1px dashed #d1d5db;
+    padding-top: 0.5in;
+    padding-bottom: 0.5in;
+    margin-bottom: 0;
+    border-bottom: none;
 }
 
 .sc-title-top {
@@ -1903,14 +1905,19 @@ body.wp-admin,
 }
 
 .sw-paper-sheet .sc-page-break {
-    height: 28px;
-    margin: 32px -1.0in 32px -1.5in;
-    border-top: 2px dashed #cbd5e1;
-    background: #f8fafc;
-    display: block;
-    position: relative;
-    page-break-before: always;
-    break-before: page;
+    display: none;
+}
+
+@media print {
+    .sc-page-break {
+        display: block !important;
+        page-break-before: always;
+        break-before: page;
+        height: 0;
+        margin: 0;
+        border: none;
+        background: transparent;
+    }
 }
 
 /* ==========================================================================
